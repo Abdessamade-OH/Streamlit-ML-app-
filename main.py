@@ -29,6 +29,55 @@ def landing_page():
     with st.form(key="landing_form", border=False):
         st.form_submit_button("Get Started", on_click=lambda: st.session_state.update({"page": 1}))
 
+
+
+# Fonction pour afficher la tab "Split"
+def split_tab():
+    st.header("Split")
+
+    # Vérifier si des données sont disponibles avant de procéder à la division
+    if st.session_state.data is not None:
+        # Sélection de la cible pour la prédiction
+        st.subheader("Sélectionnez la colonne cible:")
+        target_column = st.selectbox("Sélectionnez la colonne cible", st.session_state.data.columns, key="select_target_column")
+
+        # Pourcentage de données pour l'ensemble d'entraînement
+        st.subheader("Pourcentage pour l'ensemble d'entraînement:")
+        train_percentage = st.slider("Pourcentage d'entraînement", 0, 100, 80, key="train_percentage")
+
+        # Bouton pour diviser les données
+        if st.button("Diviser les données"):
+            # Sélectionner uniquement les colonnes numériques
+            numeric_columns = st.session_state.data.select_dtypes(include=['number']).columns
+
+            # Vérifier s'il y a des colonnes numériques pour éviter l'erreur
+            if not numeric_columns.empty:
+                # Diviser les données
+                from sklearn.model_selection import train_test_split
+
+                X_train, X_test, y_train, y_test = train_test_split(
+                    st.session_state.data.drop(columns=[target_column]),
+                    st.session_state.data[target_column],
+                    test_size=train_percentage / 100,
+                    random_state=42  # Vous pouvez spécifier une graine aléatoire pour la reproductibilité
+                )
+
+                # Afficher des informations sur les ensembles
+                st.write("Ensemble d'entraînement:")
+                st.write(X_train.head())
+                st.write("Ensemble de test:")
+                st.write(X_test.head())
+
+                st.success("Les données ont été divisées avec succès.")
+            else:
+                st.warning("Aucune colonne numérique pour diviser.")
+        else:
+            st.warning("Veuillez sélectionner une colonne cible.")
+
+    else:
+        st.warning("Veuillez importer des données d'abord.")
+
+
 # Fonction pour afficher les onglets
 def display_tabs():
     tab1, tab2, tab3, tab4 = st.tabs(["Data", "Visualise", "Clean", "Split"])
@@ -171,7 +220,7 @@ def display_tabs():
 
     # onglet division des données  
     with tab4:
-        st.header("Split")
+        split_tab()
 
 # Fonction principale
 def main():
