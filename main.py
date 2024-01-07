@@ -85,6 +85,10 @@ def split_tab():
         st.subheader("Pourcentage pour l'ensemble d'entraînement:")
         train_percentage = st.slider("Pourcentage d'entraînement", 0, 100, 80, key="train_percentage")
 
+        # Graine aléatoire
+        st.subheader("Graine aléatoire (Random State):")
+        random_state = st.number_input("Entrez la graine aléatoire", value=42, key="random_state")
+
         # Bouton pour diviser les données
         if st.button("Diviser les données"):
             # Sélectionner uniquement les colonnes numériques
@@ -99,7 +103,7 @@ def split_tab():
                     st.session_state.data.drop(columns=[target_column]),
                     st.session_state.data[target_column],
                     test_size=train_percentage / 100,
-                    random_state=42  # Vous pouvez spécifier une graine aléatoire pour la reproductibilité
+                    random_state=random_state  # Utiliser la graine aléatoire spécifiée par l'utilisateur
                 )
 
                 # Afficher des informations sur les ensembles
