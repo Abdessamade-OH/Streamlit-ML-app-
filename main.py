@@ -202,6 +202,9 @@ def display_tabs():
                         original_data = pd.get_dummies(original_data, columns=categorical_cols, drop_first=True)
                         st.session_state.data = original_data.copy()  # Mettez à jour la session_data avec les modifications
                         st.success("Encodage One-Hot appliqué avec succès.")
+                        # Affichage de l'aperçu des données après l'encodage
+                        st.write("Aperçu des données après l'encodage:")
+                        st.write(original_data.head())
                     elif encoding_option == "Ordinal":
                         # Implémentez ici l'encodage ordinal si nécessaire
                         st.warning("L'encodage ordinal n'est pas encore implémenté.")
@@ -221,13 +224,11 @@ def display_tabs():
                     original_data[numeric_columns] = (original_data[numeric_columns] - original_data[numeric_columns].min()) / (original_data[numeric_columns].max() - original_data[numeric_columns].min())
                     st.session_state.data = original_data.copy()  # Mettez à jour la session_data avec les modifications
                     st.success("Les données ont été normalisées avec succès.")
+                    # Affichage de l'aperçu des données après la normalisation
+                    st.write("Aperçu des données après la normalisation:")
+                    st.write(original_data.head())
                 else:
                     st.warning("Aucune colonne numérique pour normaliser.")
-
-
-            # Affichage de l'aperçu des données après le nettoyage
-            st.write("Aperçu des données après le nettoyage:")
-            st.write(original_data.head())
 
         else:
             st.warning("Veuillez importer des données d'abord.")
