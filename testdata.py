@@ -43,41 +43,50 @@ def check_data_exists():
 # Fonction pour supprimer des colonnes
 def supprimer_col():
     st.subheader("Supprimer des colonnes:")
-    
-    if not check_data_exists():
-        st.warning("Aucune donnée valide n'a été importée. Veuillez importer un fichier CSV dans l'onglet 'Data' avant de nettoyer.")
+
+    if st.session_state.modified_data is not None:
+        data_to_modify = st.session_state.modified_data
+    elif st.session_state.data is not None:
+        data_to_modify = st.session_state.data
+    else:
+        st.warning("Aucune donnée n'est disponible. Veuillez importer un fichier CSV dans l'onglet 'Data' avant de supprimer des colonnes.")
         return
-    
-    selected_columns_to_drop = st.multiselect("Sélectionnez les colonnes à supprimer", st.session_state.data.columns)
+
+    selected_columns_to_drop = st.multiselect("Sélectionnez les colonnes à supprimer", data_to_modify.columns)
     if st.button("Supprimer les colonnes sélectionnées"):
         if selected_columns_to_drop:
-            st.session_state.modified_data = st.session_state.data.drop(columns=selected_columns_to_drop).copy()
+            data_to_modify = data_to_modify.drop(columns=selected_columns_to_drop)
+            st.session_state.modified_data = data_to_modify
             st.success("Les colonnes sélectionnées ont été supprimées avec succès.")
             st.write("Aperçu des données après suppression :")
-            st.write(st.session_state.modified_data.head())
+            st.write(data_to_modify.head())
         else:
             st.warning("Veuillez sélectionner au moins une colonne à supprimer.")
+
 
 # Fonction pour encodage des variables catégorielles
 def encodage():
     st.subheader("Encodage des variables catégorielles:")
-    
-    if not check_data_exists():
-        st.warning("Aucune donnée valide n'a été importée. Veuillez importer un fichier CSV dans l'onglet 'Data' avant d'encoder.")
+
+    if st.session_state.modified_data is not None:
+        data_to_modify = st.session_state.modified_data
+    elif st.session_state.data is not None:
+        data_to_modify = st.session_state.data
+    else:
+        st.warning("Aucune donnée n'est disponible. Veuillez importer un fichier CSV dans l'onglet 'Data' avant de faire l'encodage.")
         return
-    
-    data_to_encode = st.session_state.modified_data if st.session_state.modified_data is not None else st.session_state.data
-    data_copy = data_to_encode.copy()  # Create a copy of the data before modification
-    categorical_cols = data_copy.select_dtypes(include=['object']).columns.tolist()
-    
+
+    categorical_cols = data_to_modify.select_dtypes(include=['object']).columns.tolist()
+
     if categorical_cols:
         encoding_option = st.selectbox("Choisissez une option d'encodage :", ["One-Hot", "Ordinal"])
         if st.button("Appliquer l'encodage"):
             if encoding_option == "One-Hot":
-                data_copy = pd.get_dummies(data_copy, columns=categorical_cols, drop_first=True).copy()
+                data_to_modify = pd.get_dummies(data_to_modify, columns=categorical_cols, drop_first=True)
+                st.session_state.modified_data = data_to_modify
                 st.success("Encodage One-Hot appliqué avec succès.")
                 st.write("Aperçu des données après l'encodage:")
-                st.write(data_copy.head())
+                st.write(data_to_modify.head())
             elif encoding_option == "Ordinal":
                 # Implémentez ici l'encodage ordinal si nécessaire
                 st.warning("L'encodage ordinal n'est pas encore implémenté.")
@@ -86,6 +95,31 @@ def encodage():
     else:
         st.warning("Aucune variable catégorielle à encoder.")
 
+
+# Fonction pour normaliser les variables numériques
+def normaliser():
+    st.subheader("Normalisation des variables numériques:")
+
+    if st.session_state.modified_data is not None:
+        data_to_modify = st.session_state.modified_data
+    elif st.session_state.data is not None:
+        data_to_modify = st.session_state.data
+    else:
+        st.warning("Aucune donnée n'est disponible. Veuillez importer un fichier CSV dans l'onglet 'Data' avant de normaliser.")
+        return
+
+    data_copy = data_to_modify.copy()  # Create a copy of the data before modification
+    numerical_cols = data_copy.select_dtypes(include=['number']).columns.tolist()
+
+    if numerical_cols:
+        if st.button("Appliquer la normalisation"):
+            data_copy[numerical_cols] = (data_copy[numerical_cols] - data_copy[numerical_cols].min()) / (data_copy[numerical_cols].max() - data_copy[numerical_cols].min())
+            st.session_state.modified_data = data_copy
+            st.success("Normalisation appliquée avec succès.")
+            st.write("Aperçu des données après la normalisation:")
+            st.write(data_copy.head())
+    else:
+        st.warning("Aucune variable numérique à normaliser.")
 
 
 
@@ -146,6 +180,9 @@ def display_tabs():
 
             # Exécution de la fonction encodage() seulement si des données existent
             encodage()
+
+            # Exécution de la fonction normaliser() seulement si des données existent
+            normaliser()
 
     # onglet division des données  
     with tab4:
