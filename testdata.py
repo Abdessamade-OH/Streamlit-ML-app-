@@ -64,6 +64,40 @@ def supprimer_col():
             st.warning("Veuillez sélectionner au moins une colonne à supprimer.")
 
 
+# Fonction pour remplacer les valeurs manquantes
+def remplacer_valeurs_manquantes():
+    st.subheader("Remplacer les valeurs manquantes:")
+
+    if st.session_state.modified_data is not None:
+        data_to_modify = st.session_state.modified_data
+    elif st.session_state.data is not None:
+        data_to_modify = st.session_state.data
+    else:
+        st.warning("Aucune donnée n'est disponible. Veuillez importer un fichier CSV dans l'onglet 'Data' avant de remplacer les valeurs manquantes.")
+        return
+
+    replace_option = st.selectbox("Choisissez une option de remplacement :", ["0", "Moyenne", "Médiane"])
+    selected_columns = st.multiselect("Sélectionnez les colonnes à modifier", data_to_modify.columns)
+
+    if st.button("Appliquer le remplacement"):
+        if selected_columns:
+            if replace_option == "0":
+                data_to_modify[selected_columns] = data_to_modify[selected_columns].fillna(0)
+                st.session_state.modified_data = data_to_modify
+                st.success("Les valeurs manquantes ont été remplacées par 0 avec succès.")
+            elif replace_option == "Moyenne":
+                data_to_modify[selected_columns] = data_to_modify[selected_columns].fillna(data_to_modify[selected_columns].mean())
+                st.session_state.modified_data = data_to_modify
+                st.success("Les valeurs manquantes ont été remplacées par la moyenne avec succès.")
+            elif replace_option == "Médiane":
+                data_to_modify[selected_columns] = data_to_modify[selected_columns].fillna(data_to_modify[selected_columns].median())
+                st.session_state.modified_data = data_to_modify
+                st.success("Les valeurs manquantes ont été remplacées par la médiane avec succès.")
+        else:
+            st.warning("Veuillez sélectionner au moins une colonne à modifier.")
+
+
+
 # Fonction pour encodage des variables catégorielles
 def encodage():
     st.subheader("Encodage des variables catégorielles:")
@@ -177,6 +211,9 @@ def display_tabs():
         else:
             # Exécution de la fonction supprimer_col()
             supprimer_col()
+
+            # Exécution de la fonction remplacer_valeurs_manquantes()
+            remplacer_valeurs_manquantes()
 
             # Exécution de la fonction encodage() seulement si des données existent
             encodage()
