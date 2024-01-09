@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+from sklearn.model_selection import train_test_split
 
 # Définir la largeur de la page
 st.set_page_config(layout="wide")
@@ -28,8 +29,8 @@ def landing_page():
         st.form_submit_button("Get Started", on_click=lambda: st.session_state.update({"page": 1}))
 
 # Fonction pour importer fichier csv
-def import_csv(tab_index): 
-    uploaded_file = st.file_uploader("Importer un fichier CSV", type=["csv"], key=f"file_uploader_{tab_index}")
+def import_csv(): 
+    uploaded_file = st.file_uploader("Importer un fichier CSV", type=["csv"])
     if uploaded_file is not None:
         st.success("Vos données ont été importées avec succès.")
         st.session_state.data = pd.read_csv(uploaded_file)  # Variable pour stocker les données importées
@@ -85,6 +86,40 @@ def encodage():
     else:
         st.warning("Aucune variable catégorielle à encoder.")
 
+
+
+
+# Fonction pour diviser les données en ensemble d'entraînement et de test
+def split_data():
+    
+    if st.session_state.modified_data is None:
+        st.warning("Aucune donnée nettoyée n'est disponible. Veuillez nettoyer et encoder vos données dans l'onglet 'Clean' avant de diviser.")
+        return
+    
+    target_variable = st.selectbox("Sélectionnez la variable cible :", st.session_state.modified_data.columns)
+    random_state = st.number_input("Sélectionnez la valeur pour 'random_state' :", min_value=0, step=1, value=42)
+    test_size_percentage = st.slider("Sélectionnez la proportion d'entraînement :", min_value=10, max_value=90, step=10, value=80)
+    
+    if st.button("Diviser les données"):
+        test_size = test_size_percentage / 100.0  # Convert percentage to fraction
+        X_train, X_test = train_test_split(st.session_state.modified_data, test_size=test_size, random_state=random_state)
+        st.session_state.split_data = {
+            "X_train": X_train.drop(columns=[target_variable]),
+            "y_train": X_train[target_variable],
+            "X_test": X_test.drop(columns=[target_variable]),
+            "y_test": X_test[target_variable]
+        }
+        st.success("Les données ont été divisées avec succès.")
+        
+        st.write("Aperçu de l'ensemble d'entraînement:")
+        st.write(X_train.head())
+        
+        st.write("Aperçu de l'ensemble de test:")
+        st.write(X_test.head())
+
+
+
+
 # Fonction pour afficher les onglets
 def display_tabs():
     tab1, tab2, tab3, tab4 = st.tabs(["Data", "Visualise", "Clean", "Split"])
@@ -93,7 +128,7 @@ def display_tabs():
     with tab1:
         st.header("Data")
 
-        st.session_state.data = import_csv(1)  # Assign the imported data to st.session_state.data
+        st.session_state.data = import_csv()  # Assign the imported data to st.session_state.data
 
         with st.form(key="Exit", border=False):
             st.form_submit_button("Exit", on_click=lambda: st.session_state.update({"page": 0}))  # Revenir à la landing page
@@ -111,6 +146,15 @@ def display_tabs():
 
             # Exécution de la fonction encodage() seulement si des données existent
             encodage()
+
+    # onglet division des données  
+    with tab4:
+        st.header("Split")
+
+        # Exécution de la fonction split_data()
+        split_data()
+
+
 
 # Fonction principale
 def main():
