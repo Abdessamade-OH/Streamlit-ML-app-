@@ -101,7 +101,7 @@ def remplacer_valeurs_manquantes():
 # Fonction pour encodage des variables catégorielles
 def encodage():
     st.subheader("Encodage des variables catégorielles:")
-
+    
     if st.session_state.modified_data is not None:
         data_to_modify = st.session_state.modified_data
     elif st.session_state.data is not None:
@@ -109,25 +109,31 @@ def encodage():
     else:
         st.warning("Aucune donnée n'est disponible. Veuillez importer un fichier CSV dans l'onglet 'Data' avant de faire l'encodage.")
         return
-
+    
     categorical_cols = data_to_modify.select_dtypes(include=['object']).columns.tolist()
-
+    
     if categorical_cols:
-        encoding_option = st.selectbox("Choisissez une option d'encodage :", ["One-Hot", "Ordinal"])
-        if st.button("Appliquer l'encodage"):
-            if encoding_option == "One-Hot":
-                data_to_modify = pd.get_dummies(data_to_modify, columns=categorical_cols, drop_first=True)
-                st.session_state.modified_data = data_to_modify
-                st.success("Encodage One-Hot appliqué avec succès.")
-                st.write("Aperçu des données après l'encodage:")
-                st.write(data_to_modify.head())
-            elif encoding_option == "Ordinal":
-                # Implémentez ici l'encodage ordinal si nécessaire
-                st.warning("L'encodage ordinal n'est pas encore implémenté.")
-            else:
-                st.warning("Veuillez sélectionner une option d'encodage valide.")
+        selected_columns = st.multiselect("Sélectionnez les colonnes à encoder", categorical_cols)
+        
+        if selected_columns:
+            encoding_option = st.selectbox("Choisissez une option d'encodage :", ["One-Hot", "Ordinal"])
+            if st.button("Appliquer l'encodage"):
+                if encoding_option == "One-Hot":
+                    data_to_modify = pd.get_dummies(data_to_modify, columns=selected_columns, drop_first=True)
+                    st.session_state.modified_data = data_to_modify
+                    st.success("Encodage One-Hot appliqué avec succès.")
+                    st.write("Aperçu des données après l'encodage:")
+                    st.write(data_to_modify.head())
+                elif encoding_option == "Ordinal":
+                    # Implement ordinal encoding here if needed
+                    st.warning("L'encodage ordinal n'est pas encore implémenté.")
+                else:
+                    st.warning("Veuillez sélectionner une option d'encodage valide.")
+        else:
+            st.warning("Veuillez sélectionner au moins une colonne à encoder.")
     else:
         st.warning("Aucune variable catégorielle à encoder.")
+
 
 
 # Fonction pour normaliser les variables numériques
