@@ -1,5 +1,7 @@
 import streamlit as st
 import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
 from sklearn.model_selection import train_test_split
 
 # Définir la largeur de la page
@@ -12,6 +14,7 @@ def init_session():
         st.session_state.data = None  # Initialiser la variable "data" à None
         st.session_state.columns_to_drop = []  # Initialiser la liste des colonnes à supprimer
         st.session_state.modified_data = None  # Initialiser la variable pour le DataFrame modifié
+        st.session_state.split_data = None  # Initialiser la variable "split_data" à None
 
 # Fonction pour afficher la landing page
 def landing_page():
@@ -39,6 +42,47 @@ def import_csv():
 # Fonction pour vérifier si des données existent dans st.session_state.data
 def check_data_exists():
     return st.session_state.data is not None
+
+
+# Fonction pour visualiser les données
+def visualize_data():
+    # Vérifier si des données nettoyées sont disponibles
+    if st.session_state.modified_data is not None:
+        data_to_visualize = st.session_state.modified_data
+    elif st.session_state.data is not None:
+        data_to_visualize = st.session_state.data
+    else:
+        st.warning("Aucune donnée n'est disponible. Veuillez importer un fichier CSV dans l'onglet 'Data' avant de visualiser.")
+        return
+
+    # Sélection des colonnes pour la visualisation
+    st.subheader("Sélectionnez deux colonnes pour la visualisation:")
+    st.session_state.selected_columns = st.multiselect("Sélectionnez deux colonnes", data_to_visualize.columns, key="select_columns")
+
+    # Sélection du type de graphe
+    chart_type = st.selectbox("Sélectionnez le type de graphe", ["Scatter Plot", "Line Plot", "Bar Plot"])
+
+    # Affichage du graphe en fonction du type choisi
+    if st.button("Afficher le graphe"):
+        if len(st.session_state.selected_columns) == 2:
+            if chart_type == "Scatter Plot":
+                fig, ax = plt.subplots()
+                sns.scatterplot(x=st.session_state.selected_columns[0], y=st.session_state.selected_columns[1], data=data_to_visualize, ax=ax)
+                st.pyplot(fig)
+            elif chart_type == "Line Plot":
+                fig, ax = plt.subplots()
+                sns.lineplot(x=st.session_state.selected_columns[0], y=st.session_state.selected_columns[1], data=data_to_visualize, ax=ax)
+                st.pyplot(fig)
+            elif chart_type == "Bar Plot":
+                fig, ax = plt.subplots()
+                sns.barplot(x=st.session_state.selected_columns[0], y=st.session_state.selected_columns[1], data=data_to_visualize, ax=ax)
+                st.pyplot(fig)
+            else:
+                st.warning("Veuillez sélectionner un type de graphe valide.")
+        else:
+            st.warning("Veuillez sélectionner exactement deux colonnes pour la visualisation.")
+
+
 
 # Fonction pour supprimer des colonnes
 def supprimer_col():
@@ -166,37 +210,80 @@ def normaliser():
 # Fonction pour diviser les données en ensemble d'entraînement et de test
 def split_data():
     
-    if st.session_state.modified_data is None:
-        st.warning("Aucune donnée nettoyée n'est disponible. Veuillez nettoyer et encoder vos données dans l'onglet 'Clean' avant de diviser.")
+    if st.session_state.modified_data is not None:
+        data_to_split = st.session_state.modified_data
+    elif st.session_state.data is not None:
+        data_to_split = st.session_state.data
+        st.warning("Vous pouvez nettoyer vos données dans l'onglet 'Clean' avant de les diviser.")
+    else:
+        st.warning("Aucune donnée n'est disponible. Veuillez importer un fichier CSV dans l'onglet 'Data' avant de diviser.")
         return
     
-    target_variable = st.selectbox("Sélectionnez la variable cible :", st.session_state.modified_data.columns)
+    target_variable = st.selectbox("Sélectionnez la variable cible :", data_to_split.columns)
     random_state = st.number_input("Sélectionnez la valeur pour 'random_state' :", min_value=0, step=1, value=42)
     test_size_percentage = st.slider("Sélectionnez la proportion d'entraînement :", min_value=10, max_value=90, step=10, value=80)
     
     if st.button("Diviser les données"):
         test_size = test_size_percentage / 100.0  # Convert percentage to fraction
-        X_train, X_test = train_test_split(st.session_state.modified_data, test_size=test_size, random_state=random_state)
+        X_train, X_test, y_train, y_test = train_test_split(
+            data_to_split.drop(columns=[target_variable]),
+            data_to_split[target_variable],
+            test_size=test_size,
+            random_state=random_state
+        )
         st.session_state.split_data = {
-            "X_train": X_train.drop(columns=[target_variable]),
-            "y_train": X_train[target_variable],
-            "X_test": X_test.drop(columns=[target_variable]),
-            "y_test": X_test[target_variable]
+            "X_train": X_train,
+            "y_train": y_train,
+            "X_test": X_test,
+            "y_test": y_test
         }
         st.success("Les données ont été divisées avec succès.")
         
+        st.write("Taille de l'ensemble d'entraînement:", len(X_train))
+        st.write("Taille de l'ensemble de test:", len(X_test))
+        
         st.write("Aperçu de l'ensemble d'entraînement:")
         st.write(X_train.head())
+        st.write(y_train.head())
         
         st.write("Aperçu de l'ensemble de test:")
         st.write(X_test.head())
+        st.write(y_test.head())
+
+
+# Fonction pour choisir le type de problème
+def choix_du_probleme():
+    if st.session_state.split_data is None:
+        st.warning("Veuillez diviser les données dans l'onglet 'Split' avant de continuer.")
+        return
+
+    st.subheader("Choisissez le type de problème:")
+    supervised_option = st.radio("Supervisé ou non supervisé ?", ["Supervisé", "Non Supervisé"])
+
+    if supervised_option == "Supervisé":
+        probleme_type = st.radio("Classification ou Régression ?", ["Classification", "Régression"])
+        if st.button("Continuer"):
+            st.session_state.problem_type = {"Supervisé": True, "Type": probleme_type}
+            st.session_state.classification_or_regression = probleme_type  # Save the classification or regression type
+            st.success(f"Vous avez choisi un problème de {probleme_type.lower()} supervisée.")
+    elif supervised_option == "Non Supervisé":
+        if st.button("Continuer"):
+            st.session_state.problem_type = {"Supervisé": False, "Type": "Non Supervisé"}
+            st.session_state.classification_or_regression = None  # Clear the classification or regression type
+            st.success("Vous avez choisi un problème non supervisé.")
+    else:
+        st.warning("Veuillez sélectionner une option valide.")
+
+
+
+
 
 
 
 
 # Fonction pour afficher les onglets
 def display_tabs():
-    tab1, tab2, tab3, tab4 = st.tabs(["Data", "Visualise", "Clean", "Split"])
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["Data", "Visualise", "Clean", "Split", "Choix du problème", "PCA & SMOTE"])
 
     # onglet importation des données
     with tab1:
@@ -206,6 +293,13 @@ def display_tabs():
 
         with st.form(key="Exit", border=False):
             st.form_submit_button("Exit", on_click=lambda: st.session_state.update({"page": 0}))  # Revenir à la landing page
+
+    # Onglet visualisation des données
+    with tab2:
+        st.header("Visualize")
+
+        visualize_data()
+
     
     # onglet netoyage des données  
     with tab3:
@@ -233,6 +327,15 @@ def display_tabs():
 
         # Exécution de la fonction split_data()
         split_data()
+
+    # Onglet choix du problème
+    with tab5:
+        st.header("Choix du problème")
+
+        choix_du_probleme()
+
+    with tab6:
+        st.write(st.session_state.split_data)
 
 
 
