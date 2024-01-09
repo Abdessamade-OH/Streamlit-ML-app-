@@ -31,8 +31,8 @@ def landing_page():
 
 
 # Fonction pour importer fichier csv
-def import_csv(tab_index): 
-    uploaded_file = st.file_uploader("Importer un fichier CSV", type=["csv"], key=f"file_uploader_{tab_index}")
+def import_csv(): 
+    uploaded_file = st.file_uploader("Importer un fichier CSV", type=["csv"], key="file_uploader")
     if uploaded_file is not None:
         st.success("Vos données on été importées avec succès.")
         # Ajout de la ligne pour afficher st.session_state.data
@@ -43,7 +43,44 @@ def check_data_exists():
     return 'data' in st.session_state and st.session_state.data is not None
 
 
+# Fonction pour visualiser les données
+def visualise_tab():
+    # Vérifier si des données sont disponibles avant de procéder à la visualisation
+        if st.session_state.data is not None:
+            # Sélection des colonnes pour la visualisation
+            st.subheader("Sélectionnez deux colonnes pour la visualisation:")
+            st.session_state.selected_columns = st.multiselect("Sélectionnez deux colonnes", st.session_state.data.columns, key="select_columns")
 
+            # Sélection du type de graphe
+            chart_type = st.selectbox("Sélectionnez le type de graphe", ["Scatter Plot", "Line Plot", "Bar Plot"])
+
+            # Affichage du graphe en fonction du type choisi
+            if st.button("Afficher le graphe"):
+                if len(st.session_state.selected_columns) == 2:
+                    if chart_type == "Scatter Plot":
+                        fig, ax = plt.subplots()
+                        sns.scatterplot(x=st.session_state.selected_columns[0], y=st.session_state.selected_columns[1], data=st.session_state.data, ax=ax)
+                        st.pyplot(fig)
+                    elif chart_type == "Line Plot":
+                        fig, ax = plt.subplots()
+                        sns.lineplot(x=st.session_state.selected_columns[0], y=st.session_state.selected_columns[1], data=st.session_state.data, ax=ax)
+                        st.pyplot(fig)
+                    elif chart_type == "Bar Plot":
+                        fig, ax = plt.subplots()
+                        sns.barplot(x=st.session_state.selected_columns[0], y=st.session_state.selected_columns[1], data=st.session_state.data, ax=ax)
+                        st.pyplot(fig)
+                    else:
+                        st.warning("Veuillez sélectionner un type de graphe valide.")
+                else:
+                    st.warning("Veuillez sélectionner exactement deux colonnes pour la visualisation.")
+        else:
+            st.warning("Veuillez importer des données d'abord.")
+
+def analyse_data():
+    st.subheader("Analyse des données:")
+    st.write("Nombre de valeurs manquantes par colonne:")
+    missing_values = st.session_state.data.isnull().sum()
+    st.write(missing_values)
 
 # Fonction pour supprimer des colonnes
 def supprimer_col():
@@ -64,6 +101,30 @@ def supprimer_col():
             st.warning("Veuillez sélectionner au moins une colonne à supprimer.")
 
 
+def remplacer_nan():
+    st.subheader("Remplacer NaN par 0:")
+    if st.button("Remplacer NaN par 0"):
+        original_data = original_data.fillna(0)
+        st.session_state.data = original_data.copy()  # Mettez à jour la session_data avec les modifications
+        st.success("Les NaN ont été remplacés par 0 avec succès.")
+
+
+def remplacer_val():
+    st.subheader("Remplacer les valeurs manquantes:")
+    replace_option = st.selectbox("Choisissez une option de remplacement :", ["0", "Moyenne", "Médiane"])
+    if st.button("Appliquer le remplacement"):
+        if replace_option == "0":
+            original_data = original_data.fillna(0)
+            st.session_state.data = original_data.copy()  # Mettez à jour la session_data avec les modifications
+            st.success("Les valeurs manquantes ont été remplacées par 0 avec succès.")
+        elif replace_option == "Moyenne":
+            original_data = original_data.fillna(original_data.mean())
+            st.session_state.data = original_data.copy()  # Mettez à jour la session_data avec les modifications
+            st.success("Les valeurs manquantes ont été remplacées par la moyenne avec succès.")
+        elif replace_option == "Médiane":
+            original_data = original_data.fillna(original_data.median())
+            st.session_state.data = original_data.copy()  # Mettez à jour la session_data avec les modifications
+            st.success("Les valeurs manquantes ont été remplacées par la médiane avec succès.")
 
 
 
@@ -94,7 +155,70 @@ def encodage():
         st.warning("Aucune variable catégorielle à encoder.")
 
 
+def normaliser():
+    st.subheader("Normaliser les données:")
+    numeric_columns = original_data.select_dtypes(include=['number']).columns
+    
+    # Bouton pour appliquer la normalisation
+    if st.button("Normaliser les données"):
+        if not numeric_columns.empty:
+            original_data[numeric_columns] = (original_data[numeric_columns] - original_data[numeric_columns].min()) / (original_data[numeric_columns].max() - original_data[numeric_columns].min())
+            st.session_state.data = original_data.copy()  # Mettez à jour la session_data avec les modifications
+            st.success("Les données ont été normalisées avec succès.")
+            st.write("Aperçu des données après la normalisation:")
+            st.write(original_data.head())
+        else:
+            st.warning("Aucune colonne numérique pour normaliser.")
 
+
+
+# Fonction pour afficher la tab "Split"
+def split_tab():
+    # Vérifier si des données sont disponibles avant de procéder à la division
+    if st.session_state.data is not None:
+        # Sélection de la cible pour la prédiction
+        st.subheader("Sélectionnez la colonne cible:")
+        target_column = st.selectbox("Sélectionnez la colonne cible", st.session_state.data.columns, key="select_target_column")
+
+        # Pourcentage de données pour l'ensemble d'entraînement
+        st.subheader("Pourcentage pour l'ensemble d'entraînement:")
+        train_percentage = st.slider("Pourcentage d'entraînement", 0, 100, 80, key="train_percentage")
+
+        # Graine aléatoire
+        st.subheader("Graine aléatoire (Random State):")
+        random_state = st.number_input("Entrez la graine aléatoire", value=42, key="random_state")
+
+        # Bouton pour diviser les données
+        if st.button("Diviser les données"):
+            # Sélectionner uniquement les colonnes numériques
+            numeric_columns = st.session_state.data.select_dtypes(include=['number']).columns
+
+            # Vérifier s'il y a des colonnes numériques pour éviter l'erreur
+            if not numeric_columns.empty:
+                # Diviser les données
+                from sklearn.model_selection import train_test_split
+
+                X_train, X_test, y_train, y_test = train_test_split(
+                    st.session_state.data.drop(columns=[target_column]),
+                    st.session_state.data[target_column],
+                    test_size=train_percentage / 100,
+                    random_state=random_state  # Utiliser la graine aléatoire spécifiée par l'utilisateur
+                )
+
+                # Afficher des informations sur les ensembles
+                st.write("Ensemble d'entraînement:")
+                st.write(X_train.head())
+                st.write("Ensemble de test:")
+                st.write(X_test.head())
+
+                st.success("Les données ont été divisées avec succès.")
+            else:
+                st.warning("Aucune colonne numérique pour diviser.")
+        else:
+            st.warning("Veuillez sélectionner une colonne cible.")
+
+    else:
+        st.warning("Veuillez importer des données d'abord.")
 
 
 
@@ -106,7 +230,7 @@ def display_tabs():
     with tab1:
         st.header("Data")
 
-        import_csv(1) # Pass tab index to generate a unique key
+        import_csv()
 
         with st.form(key="Exit", border=False):
             st.form_submit_button("Exit", on_click=lambda: st.session_state.update({"page": 0}))  # Revenir à la landing page
@@ -116,6 +240,7 @@ def display_tabs():
     with tab2:
         st.header("Visualise")
 
+        visualise_tab()
 
 
     # onglet netoyage des données  
@@ -124,7 +249,7 @@ def display_tabs():
 
         # Appel de la fonction d'importation des données avant d'exécuter les autres fonctions
         if not check_data_exists():
-            st.session_state.data = import_csv(3)
+            st.session_state.data = import_csv()
 
         # Exécution de la fonction supprimer_col()
         supprimer_col()
@@ -140,6 +265,7 @@ def display_tabs():
     with tab4:
         st.header("Split")
 
+        split_tab()
 
 # Fonction principale
 def main():
