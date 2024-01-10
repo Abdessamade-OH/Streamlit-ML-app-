@@ -165,6 +165,7 @@ def remplacer_valeurs_manquantes():
 
 
 
+
 # Fonction pour encodage des variables catégorielles
 def encodage():
     st.subheader("Encodage des variables catégorielles:")
@@ -363,12 +364,16 @@ def display_tabs():
                     
                     # Affichage de la taille des données
                     st.write(f"Taille des données : {st.session_state.modified_data.shape}")
+                    # Affichage du nombre de valeurs manquantes
+                    st.write(f"Nombre de valeurs manquantes : {st.session_state.modified_data.isnull().sum().sum()}")
                 elif st.session_state.data is not None:
                     st.warning("Aucune modification n'a été effectuée. Voici l'aperçu des données importées.")
                     st.write("Aperçu des données importées:")
                     st.write(st.session_state.data)
                     # Affichage de la taille des données
                     st.write(f"Taille des données : {st.session_state.data.shape}")
+                    # Affichage du nombre de valeurs manquantes
+                    st.write(f"Nombre de valeurs manquantes : {st.session_state.data.isnull().sum().sum()}")
 
 
     # onglet division des données  
