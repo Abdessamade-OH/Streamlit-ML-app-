@@ -108,7 +108,6 @@ def supprimer_col():
             data_to_modify = data_to_modify.drop(columns=selected_columns_to_drop)
             st.session_state.modified_data = data_to_modify
             st.success("Les colonnes sélectionnées ont été supprimées avec succès.")
-            st.write("Aperçu des données après suppression :")
         else:
             st.warning("Veuillez sélectionner au moins une colonne à supprimer.")
 
@@ -410,16 +409,24 @@ def display_tabs():
                     
                     # Affichage de la taille des données
                     st.write(f"Taille des données : {st.session_state.modified_data.shape}")
-                    # Affichage du nombre de valeurs manquantes
-                    st.write(f"Nombre de valeurs manquantes : {st.session_state.modified_data.isnull().sum().sum()}")
+                    # Affichage du nombre de valeurs manquantes par colonne
+                    st.write("Nombre de valeurs manquantes par colonne:")
+                    st.write(st.session_state.modified_data.isnull().sum())
+                    # Affichage du nombre de NaN values par colonne
+                    st.write("Nombre de NaN values par colonne:")
+                    st.write(st.session_state.modified_data.isna().sum())
                 elif st.session_state.data is not None:
                     st.warning("Aucune modification n'a été effectuée. Voici l'aperçu des données importées.")
                     st.write("Aperçu des données importées:")
                     st.write(st.session_state.data)
                     # Affichage de la taille des données
                     st.write(f"Taille des données : {st.session_state.data.shape}")
-                    # Affichage du nombre de valeurs manquantes
-                    st.write(f"Nombre de valeurs manquantes : {st.session_state.data.isnull().sum().sum()}")
+                    # Affichage du nombre de valeurs manquantes par colonne
+                    st.write("Nombre de valeurs manquantes par colonne:")
+                    st.write(st.session_state.data.isnull().sum())
+                    # Affichage du nombre de NaN values par colonne
+                    st.write("Nombre de NaN values par colonne:")
+                    st.write(st.session_state.data.isna().sum())
 
 
     # onglet division des données  
