@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.model_selection import train_test_split
@@ -131,37 +132,82 @@ def supprimer_lignes_dupliquees():
         st.write("Aperçu des données après suppression des lignes dupliquées :")
 
 
-# Fonction pour remplacer les valeurs manquantes
-def remplacer_valeurs_manquantes():
-    st.subheader("Remplacer les valeurs manquantes:")
+
+
+
+# Fonction pour remplacer les valeurs manquantes, NaN ou valeurs uniques
+def remplacer_valeurs():
+    st.subheader("Remplacer les valeurs manquantes, NaN ou valeurs uniques:")
 
     if st.session_state.modified_data is not None:
         data_to_modify = st.session_state.modified_data
     elif st.session_state.data is not None:
         data_to_modify = st.session_state.data
     else:
-        st.warning("Aucune donnée n'est disponible. Veuillez importer un fichier CSV dans l'onglet 'Data' avant de remplacer les valeurs manquantes.")
+        st.warning("Aucune donnée n'est disponible. Veuillez importer un fichier CSV dans l'onglet 'Data' avant de remplacer les valeurs manquantes, NaN ou valeurs uniques.")
         return
 
-    replace_option = st.selectbox("Choisissez une option de remplacement :", ["0", "Moyenne", "Médiane"])
+    # Choix entre remplacer les valeurs manquantes, NaN ou valeurs uniques
+    value_type = st.radio("Choisissez le type de valeurs à remplacer :", ["Valeurs Manquantes", "NaN", "Valeurs Uniques"])
     selected_columns = st.multiselect("Sélectionnez les colonnes à modifier", data_to_modify.columns)
 
-    if st.button("Appliquer le remplacement"):
+    # Choix entre 0, moyenne, medianne, mode pour le remplacement
+    replace_option = st.selectbox("Choisissez une option de remplacement :", ["0", "Moyenne", "Médiane", "Mode"])
+
+    # Générer une clé unique dynamiquement
+    button_key = "remplacer_button_" + str(hash(str(selected_columns) + value_type + replace_option))
+
+    # Afficher la zone de saisie uniquement lorsque l'utilisateur sélectionne "Valeurs Uniques"
+    if value_type == "Valeurs Uniques":
+        unique_value_to_replace = st.text_input("Entrez la valeur unique à remplacer :")
+
+        # Vérifier si l'utilisateur a saisi une valeur
+        if not unique_value_to_replace:
+            st.warning("Veuillez entrer une valeur unique à remplacer.")
+            return
+    else:
+        unique_value_to_replace = None
+
+    if st.button("Appliquer le remplacement", key=button_key):
         if selected_columns:
-            if replace_option == "0":
-                data_to_modify[selected_columns] = data_to_modify[selected_columns].fillna(0)
-                st.session_state.modified_data = data_to_modify
-                st.success("Les valeurs manquantes ont été remplacées par 0 avec succès.")
-            elif replace_option == "Moyenne":
-                data_to_modify[selected_columns] = data_to_modify[selected_columns].fillna(data_to_modify[selected_columns].mean())
-                st.session_state.modified_data = data_to_modify
-                st.success("Les valeurs manquantes ont été remplacées par la moyenne avec succès.")
-            elif replace_option == "Médiane":
-                data_to_modify[selected_columns] = data_to_modify[selected_columns].fillna(data_to_modify[selected_columns].median())
-                st.session_state.modified_data = data_to_modify
-                st.success("Les valeurs manquantes ont été remplacées par la médiane avec succès.")
+            remplacer_valeurs_selectionnees(data_to_modify, selected_columns, value_type, replace_option, unique_value_to_replace)
         else:
             st.warning("Veuillez sélectionner au moins une colonne à modifier.")
+
+# Fonction pour remplacer les valeurs manquantes, NaN ou valeurs uniques dans les colonnes sélectionnées
+def remplacer_valeurs_selectionnees(data, columns, value_type, replace_option, unique_value_to_replace=None):
+    if replace_option == "Mode":
+        mode_value = data[columns].mode().iloc[0]
+        if pd.isna(mode_value):  # Gérer le cas où le mode n'est pas disponible (par exemple, toutes les valeurs sont uniques)
+            st.warning("Le mode n'est pas disponible. Veuillez choisir une autre option de remplacement.")
+            return
+
+    if value_type == "Valeurs Manquantes":
+        if replace_option == "0":
+            data[columns] = data[columns].fillna(0)
+        elif replace_option == "Moyenne":
+            data[columns] = data[columns].fillna(data[columns].mean())
+        elif replace_option == "Médiane":
+            data[columns] = data[columns].fillna(data[columns].median())
+        elif replace_option == "Mode":
+            data[columns] = data[columns].fillna(mode_value)
+    elif value_type == "NaN":
+        if replace_option == "0":
+            data[columns] = data[columns].replace(0, np.nan)
+        elif replace_option == "Moyenne":
+            data[columns] = data[columns].replace(data[columns].mean(), np.nan)
+        elif replace_option == "Médiane":
+            data[columns] = data[columns].replace(data[columns].median(), np.nan)
+        elif replace_option == "Mode":
+            data[columns] = data[columns].replace(mode_value, np.nan)
+    elif value_type == "Valeurs Uniques":
+        # Remplacer la valeur unique par l'option choisie
+        data[columns] = data[columns].replace(unique_value_to_replace, replace_option)
+
+    st.session_state.modified_data = data
+    st.success("Le remplacement a été effectué avec succès.")
+
+
 
 
 
@@ -344,8 +390,8 @@ def display_tabs():
                 # Exécution de la fonction supprimer_lignes_dupliquees()
                 supprimer_lignes_dupliquees()
 
-                # Exécution de la fonction remplacer_valeurs_manquantes()
-                remplacer_valeurs_manquantes()
+                # Exécution de la fonction remplacer_valeurs() seulement si des données existent
+                remplacer_valeurs()
 
                 # Exécution de la fonction encodage() seulement si des données existent
                 encodage()
