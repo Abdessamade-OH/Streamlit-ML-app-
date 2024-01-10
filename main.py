@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+from sklearn.model_selection import train_test_split
 
 # Définir la largeur de la page
 st.set_page_config(layout="wide")
@@ -12,14 +13,16 @@ def init_session():
         st.session_state.page = 0  # Utiliser 0 comme numéro initial de page
         st.session_state.data = None  # Initialiser la variable "data" à None
         st.session_state.columns_to_drop = []  # Initialiser la liste des colonnes à supprimer
+        st.session_state.modified_data = None  # Initialiser la variable pour le DataFrame modifié
+        st.session_state.split_data = None  # Initialiser la variable "split_data" à None
 
 # Fonction pour afficher la landing page
 def landing_page():
-
     with open('style.css') as f:
         css = f.read()
 
     st.markdown(f'<style>{css}</style>', unsafe_allow_html=True)
+
     st.markdown('<p class="font">Welcome !</p>', unsafe_allow_html=True)
 
     st.title("Bienvenue dans notre application de Machine Learning.")
@@ -29,102 +32,136 @@ def landing_page():
     with st.form(key="landing_form", border=False):
         st.form_submit_button("Get Started", on_click=lambda: st.session_state.update({"page": 1}))
 
-
 # Fonction pour importer fichier csv
 def import_csv(): 
-    uploaded_file = st.file_uploader("Importer un fichier CSV", type=["csv"], key="file_uploader")
+    uploaded_file = st.file_uploader("Importer un fichier CSV", type=["csv"])
     if uploaded_file is not None:
-        st.success("Vos données on été importées avec succès.")
-        # Ajout de la ligne pour afficher st.session_state.data
-        return pd.read_csv(uploaded_file)
-    
+        st.success("Vos données ont été importées avec succès.")
+        st.session_state.data = pd.read_csv(uploaded_file)  # Variable pour stocker les données importées
+        return st.session_state.data
+
 # Fonction pour vérifier si des données existent dans st.session_state.data
 def check_data_exists():
-    return 'data' in st.session_state and st.session_state.data is not None
+    return st.session_state.data is not None
 
 
 # Fonction pour visualiser les données
-def visualise_tab():
-    # Vérifier si des données sont disponibles avant de procéder à la visualisation
-        if st.session_state.data is not None:
-            # Sélection des colonnes pour la visualisation
-            st.subheader("Sélectionnez deux colonnes pour la visualisation:")
-            st.session_state.selected_columns = st.multiselect("Sélectionnez deux colonnes", st.session_state.data.columns, key="select_columns")
+def visualize_data():
+    # Vérifier si des données nettoyées sont disponibles
+    if st.session_state.modified_data is not None:
+        data_to_visualize = st.session_state.modified_data
+    elif st.session_state.data is not None:
+        data_to_visualize = st.session_state.data
+    else:
+        st.warning("Aucune donnée n'est disponible. Veuillez importer un fichier CSV dans l'onglet 'Data' avant de visualiser.")
+        return
 
-            # Sélection du type de graphe
-            chart_type = st.selectbox("Sélectionnez le type de graphe", ["Scatter Plot", "Line Plot", "Bar Plot"])
+    # Sélection des colonnes pour la visualisation
+    st.subheader("Sélectionnez deux colonnes pour la visualisation:")
+    selection_column, display_column = st.columns(2)
 
-            # Affichage du graphe en fonction du type choisi
-            if st.button("Afficher le graphe"):
-                if len(st.session_state.selected_columns) == 2:
-                    if chart_type == "Scatter Plot":
-                        fig, ax = plt.subplots()
-                        sns.scatterplot(x=st.session_state.selected_columns[0], y=st.session_state.selected_columns[1], data=st.session_state.data, ax=ax)
-                        st.pyplot(fig)
-                    elif chart_type == "Line Plot":
-                        fig, ax = plt.subplots()
-                        sns.lineplot(x=st.session_state.selected_columns[0], y=st.session_state.selected_columns[1], data=st.session_state.data, ax=ax)
-                        st.pyplot(fig)
-                    elif chart_type == "Bar Plot":
-                        fig, ax = plt.subplots()
-                        sns.barplot(x=st.session_state.selected_columns[0], y=st.session_state.selected_columns[1], data=st.session_state.data, ax=ax)
-                        st.pyplot(fig)
-                    else:
-                        st.warning("Veuillez sélectionner un type de graphe valide.")
-                else:
-                    st.warning("Veuillez sélectionner exactement deux colonnes pour la visualisation.")
+    # Dans la colonne de sélection, permettez à l'utilisateur de choisir les colonnes
+    st.session_state.selected_columns = selection_column.multiselect("Sélectionnez deux colonnes", data_to_visualize.columns, key="select_columns")
+
+    # Dans la colonne de sélection, permettez à l'utilisateur de choisir le graphique
+    chart_type = selection_column.selectbox("Sélectionnez le type de graphe", ["Scatter Plot", "Line Plot", "Bar Plot"])
+
+    # Dans la colonne de sélection, affichez le bouton pour afficher le graphique
+    if selection_column.button("Afficher le graphe"):
+        if len(st.session_state.selected_columns) == 2:
+            # Créer la figure et les axes avec la taille spécifiée
+            fig, ax = plt.subplots(figsize=(10, 6))
+            
+            if chart_type == "Scatter Plot":
+                sns.scatterplot(x=st.session_state.selected_columns[0], y=st.session_state.selected_columns[1], data=data_to_visualize, ax=ax)
+            elif chart_type == "Line Plot":
+                sns.lineplot(x=st.session_state.selected_columns[0], y=st.session_state.selected_columns[1], data=data_to_visualize, ax=ax)
+            elif chart_type == "Bar Plot":
+                sns.barplot(x=st.session_state.selected_columns[0], y=st.session_state.selected_columns[1], data=data_to_visualize, ax=ax)
+            else:
+                st.warning("Veuillez sélectionner un type de graphe valide.")
+            
+            # Afficher le graphique dans la colonne d'affichage
+            display_column.pyplot(fig)
         else:
-            st.warning("Veuillez importer des données d'abord.")
+            st.warning("Veuillez sélectionner exactement deux colonnes pour la visualisation.")
 
-def analyse_data():
-    st.subheader("Analyse des données:")
-    st.write("Nombre de valeurs manquantes par colonne:")
-    missing_values = st.session_state.data.isnull().sum()
-    st.write(missing_values)
+
+
 
 # Fonction pour supprimer des colonnes
 def supprimer_col():
     st.subheader("Supprimer des colonnes:")
-    
-    if not check_data_exists():
-        st.warning("Aucune donnée valide n'a été importée. Veuillez importer un fichier CSV.")
+
+    if st.session_state.modified_data is not None:
+        data_to_modify = st.session_state.modified_data
+    elif st.session_state.data is not None:
+        data_to_modify = st.session_state.data
+    else:
+        st.warning("Aucune donnée n'est disponible. Veuillez importer un fichier CSV dans l'onglet 'Data' avant de supprimer des colonnes.")
         return
-    
-    selected_columns_to_drop = st.multiselect("Sélectionnez les colonnes à supprimer", st.session_state.data.columns)
+
+    selected_columns_to_drop = st.multiselect("Sélectionnez les colonnes à supprimer", data_to_modify.columns)
     if st.button("Supprimer les colonnes sélectionnées"):
         if selected_columns_to_drop:
-            st.session_state.data = st.session_state.data.drop(columns=selected_columns_to_drop)
+            data_to_modify = data_to_modify.drop(columns=selected_columns_to_drop)
+            st.session_state.modified_data = data_to_modify
             st.success("Les colonnes sélectionnées ont été supprimées avec succès.")
             st.write("Aperçu des données après suppression :")
-            st.write(st.session_state.data.head())
         else:
             st.warning("Veuillez sélectionner au moins une colonne à supprimer.")
 
 
-def remplacer_nan():
-    st.subheader("Remplacer NaN par 0:")
-    if st.button("Remplacer NaN par 0"):
-        original_data = original_data.fillna(0)
-        st.session_state.data = original_data.copy()  # Mettez à jour la session_data avec les modifications
-        st.success("Les NaN ont été remplacés par 0 avec succès.")
+# Fonction pour supprimer les lignes dupliquées
+def supprimer_lignes_dupliquees():
+    st.subheader("Supprimer les lignes dupliquées:")
+
+    if st.session_state.modified_data is not None:
+        data_to_modify = st.session_state.modified_data
+    elif st.session_state.data is not None:
+        data_to_modify = st.session_state.data
+    else:
+        st.warning("Aucune donnée n'est disponible. Veuillez importer un fichier CSV dans l'onglet 'Data' avant de supprimer les lignes dupliquées.")
+        return
+
+    if st.button("Supprimer les lignes dupliquées"):
+        data_to_modify = data_to_modify.drop_duplicates()
+        st.session_state.modified_data = data_to_modify
+        st.success("Les lignes dupliquées ont été supprimées avec succès.")
+        st.write("Aperçu des données après suppression des lignes dupliquées :")
 
 
-def remplacer_val():
+# Fonction pour remplacer les valeurs manquantes
+def remplacer_valeurs_manquantes():
     st.subheader("Remplacer les valeurs manquantes:")
+
+    if st.session_state.modified_data is not None:
+        data_to_modify = st.session_state.modified_data
+    elif st.session_state.data is not None:
+        data_to_modify = st.session_state.data
+    else:
+        st.warning("Aucune donnée n'est disponible. Veuillez importer un fichier CSV dans l'onglet 'Data' avant de remplacer les valeurs manquantes.")
+        return
+
     replace_option = st.selectbox("Choisissez une option de remplacement :", ["0", "Moyenne", "Médiane"])
+    selected_columns = st.multiselect("Sélectionnez les colonnes à modifier", data_to_modify.columns)
+
     if st.button("Appliquer le remplacement"):
-        if replace_option == "0":
-            original_data = original_data.fillna(0)
-            st.session_state.data = original_data.copy()  # Mettez à jour la session_data avec les modifications
-            st.success("Les valeurs manquantes ont été remplacées par 0 avec succès.")
-        elif replace_option == "Moyenne":
-            original_data = original_data.fillna(original_data.mean())
-            st.session_state.data = original_data.copy()  # Mettez à jour la session_data avec les modifications
-            st.success("Les valeurs manquantes ont été remplacées par la moyenne avec succès.")
-        elif replace_option == "Médiane":
-            original_data = original_data.fillna(original_data.median())
-            st.session_state.data = original_data.copy()  # Mettez à jour la session_data avec les modifications
-            st.success("Les valeurs manquantes ont été remplacées par la médiane avec succès.")
+        if selected_columns:
+            if replace_option == "0":
+                data_to_modify[selected_columns] = data_to_modify[selected_columns].fillna(0)
+                st.session_state.modified_data = data_to_modify
+                st.success("Les valeurs manquantes ont été remplacées par 0 avec succès.")
+            elif replace_option == "Moyenne":
+                data_to_modify[selected_columns] = data_to_modify[selected_columns].fillna(data_to_modify[selected_columns].mean())
+                st.session_state.modified_data = data_to_modify
+                st.success("Les valeurs manquantes ont été remplacées par la moyenne avec succès.")
+            elif replace_option == "Médiane":
+                data_to_modify[selected_columns] = data_to_modify[selected_columns].fillna(data_to_modify[selected_columns].median())
+                st.session_state.modified_data = data_to_modify
+                st.success("Les valeurs manquantes ont été remplacées par la médiane avec succès.")
+        else:
+            st.warning("Veuillez sélectionner au moins une colonne à modifier.")
 
 
 
@@ -132,140 +169,225 @@ def remplacer_val():
 def encodage():
     st.subheader("Encodage des variables catégorielles:")
     
-    if not check_data_exists():
-        st.warning("Aucune donnée valide n'a été importée. Veuillez importer un fichier CSV.")
+    if st.session_state.modified_data is not None:
+        data_to_modify = st.session_state.modified_data
+    elif st.session_state.data is not None:
+        data_to_modify = st.session_state.data
+    else:
+        st.warning("Aucune donnée n'est disponible. Veuillez importer un fichier CSV dans l'onglet 'Data' avant de faire l'encodage.")
         return
     
-    categorical_cols = st.session_state.data.select_dtypes(include=['object']).columns.tolist()
+    categorical_cols = data_to_modify.select_dtypes(include=['object']).columns.tolist()
     
     if categorical_cols:
-        encoding_option = st.selectbox("Choisissez une option d'encodage :", ["One-Hot", "Ordinal"])
-        if st.button("Appliquer l'encodage"):
-            if encoding_option == "One-Hot":
-                st.session_state.data = pd.get_dummies(st.session_state.data, columns=categorical_cols, drop_first=True)
-                st.success("Encodage One-Hot appliqué avec succès.")
-                st.write("Aperçu des données après l'encodage:")
-                st.write(st.session_state.data.head())
-            elif encoding_option == "Ordinal":
-                # Implémentez ici l'encodage ordinal si nécessaire
-                st.warning("L'encodage ordinal n'est pas encore implémenté.")
-            else:
-                st.warning("Veuillez sélectionner une option d'encodage valide.")
+        selected_columns = st.multiselect("Sélectionnez les colonnes à encoder", categorical_cols)
+        
+        if selected_columns:
+            encoding_option = st.selectbox("Choisissez une option d'encodage :", ["One-Hot", "Ordinal"])
+            if st.button("Appliquer l'encodage"):
+                if encoding_option == "One-Hot":
+                    data_to_modify = pd.get_dummies(data_to_modify, columns=selected_columns, drop_first=True)
+                    st.session_state.modified_data = data_to_modify
+                    st.success("Encodage One-Hot appliqué avec succès.")
+                    st.write("Aperçu des données après l'encodage:")
+                elif encoding_option == "Ordinal":
+                    # Implement ordinal encoding here if needed
+                    st.warning("L'encodage ordinal n'est pas encore implémenté.")
+                else:
+                    st.warning("Veuillez sélectionner une option d'encodage valide.")
+        else:
+            st.warning("Veuillez sélectionner au moins une colonne à encoder.")
     else:
         st.warning("Aucune variable catégorielle à encoder.")
 
 
+
+# Fonction pour normaliser les variables numériques
 def normaliser():
-    st.subheader("Normaliser les données:")
-    numeric_columns = original_data.select_dtypes(include=['number']).columns
-    
-    # Bouton pour appliquer la normalisation
-    if st.button("Normaliser les données"):
-        if not numeric_columns.empty:
-            original_data[numeric_columns] = (original_data[numeric_columns] - original_data[numeric_columns].min()) / (original_data[numeric_columns].max() - original_data[numeric_columns].min())
-            st.session_state.data = original_data.copy()  # Mettez à jour la session_data avec les modifications
-            st.success("Les données ont été normalisées avec succès.")
-            st.write("Aperçu des données après la normalisation:")
-            st.write(original_data.head())
-        else:
-            st.warning("Aucune colonne numérique pour normaliser.")
+    st.subheader("Normalisation des variables numériques:")
 
-
-
-# Fonction pour afficher la tab "Split"
-def split_tab():
-    # Vérifier si des données sont disponibles avant de procéder à la division
-    if st.session_state.data is not None:
-        # Sélection de la cible pour la prédiction
-        st.subheader("Sélectionnez la colonne cible:")
-        target_column = st.selectbox("Sélectionnez la colonne cible", st.session_state.data.columns, key="select_target_column")
-
-        # Pourcentage de données pour l'ensemble d'entraînement
-        st.subheader("Pourcentage pour l'ensemble d'entraînement:")
-        train_percentage = st.slider("Pourcentage d'entraînement", 0, 100, 80, key="train_percentage")
-
-        # Graine aléatoire
-        st.subheader("Graine aléatoire (Random State):")
-        random_state = st.number_input("Entrez la graine aléatoire", value=42, key="random_state")
-
-        # Bouton pour diviser les données
-        if st.button("Diviser les données"):
-            # Sélectionner uniquement les colonnes numériques
-            numeric_columns = st.session_state.data.select_dtypes(include=['number']).columns
-
-            # Vérifier s'il y a des colonnes numériques pour éviter l'erreur
-            if not numeric_columns.empty:
-                # Diviser les données
-                from sklearn.model_selection import train_test_split
-
-                X_train, X_test, y_train, y_test = train_test_split(
-                    st.session_state.data.drop(columns=[target_column]),
-                    st.session_state.data[target_column],
-                    test_size=train_percentage / 100,
-                    random_state=random_state  # Utiliser la graine aléatoire spécifiée par l'utilisateur
-                )
-
-                # Afficher des informations sur les ensembles
-                st.write("Ensemble d'entraînement:")
-                st.write(X_train.head())
-                st.write("Ensemble de test:")
-                st.write(X_test.head())
-
-                st.success("Les données ont été divisées avec succès.")
-            else:
-                st.warning("Aucune colonne numérique pour diviser.")
-        else:
-            st.warning("Veuillez sélectionner une colonne cible.")
-
+    if st.session_state.modified_data is not None:
+        data_to_modify = st.session_state.modified_data
+    elif st.session_state.data is not None:
+        data_to_modify = st.session_state.data
     else:
-        st.warning("Veuillez importer des données d'abord.")
+        st.warning("Aucune donnée n'est disponible. Veuillez importer un fichier CSV dans l'onglet 'Data' avant de normaliser.")
+        return
+
+    data_copy = data_to_modify.copy()  # Create a copy of the data before modification
+    numerical_cols = data_copy.select_dtypes(include=['number']).columns.tolist()
+
+    if numerical_cols:
+        if st.button("Appliquer la normalisation"):
+            data_copy[numerical_cols] = (data_copy[numerical_cols] - data_copy[numerical_cols].min()) / (data_copy[numerical_cols].max() - data_copy[numerical_cols].min())
+            st.session_state.modified_data = data_copy
+            st.success("Normalisation appliquée avec succès.")
+            st.write("Aperçu des données après la normalisation:")
+    else:
+        st.warning("Aucune variable numérique à normaliser.")
+
+
+
+# Fonction pour diviser les données en ensemble d'entraînement et de test
+def split_data():
+    
+    if st.session_state.modified_data is not None:
+        data_to_split = st.session_state.modified_data
+    elif st.session_state.data is not None:
+        data_to_split = st.session_state.data
+        st.warning("Vous pouvez nettoyer vos données dans l'onglet 'Clean' avant de les diviser.")
+    else:
+        st.warning("Aucune donnée n'est disponible. Veuillez importer un fichier CSV dans l'onglet 'Data' avant de diviser.")
+        return
+    
+    target_variable = st.selectbox("Sélectionnez la variable cible :", data_to_split.columns)
+    random_state = st.number_input("Sélectionnez la valeur pour 'random_state' :", min_value=0, step=1, value=42)
+    test_size_percentage = st.slider("Sélectionnez la proportion d'entraînement :", min_value=10, max_value=90, step=10, value=80)
+    
+    if st.button("Diviser les données"):
+        test_size = test_size_percentage / 100.0  # Convert percentage to fraction
+        X_train, X_test, y_train, y_test = train_test_split(
+            data_to_split.drop(columns=[target_variable]),
+            data_to_split[target_variable],
+            test_size=test_size,
+            random_state=random_state
+        )
+        st.session_state.split_data = {
+            "X_train": X_train,
+            "y_train": y_train,
+            "X_test": X_test,
+            "y_test": y_test
+        }
+        st.success("Les données ont été divisées avec succès.")
+        
+        st.write("Taille de l'ensemble d'entraînement:", len(X_train))
+        st.write("Taille de l'ensemble de test:", len(X_test))
+        
+        st.write("Aperçu de l'ensemble d'entraînement:")
+        st.write(X_train.head())
+        st.write(y_train.head())
+        
+        st.write("Aperçu de l'ensemble de test:")
+        st.write(X_test.head())
+        st.write(y_test.head())
+
+
+# Fonction pour choisir le type de problème
+def choix_du_probleme():
+    if st.session_state.split_data is None:
+        st.warning("Veuillez diviser les données dans l'onglet 'Split' avant de continuer.")
+        return
+
+    st.subheader("Choisissez le type de problème:")
+    supervised_option = st.radio("Supervisé ou non supervisé ?", ["Supervisé", "Non Supervisé"])
+
+    if supervised_option == "Supervisé":
+        probleme_type = st.radio("Classification ou Régression ?", ["Classification", "Régression"])
+        if st.button("Continuer"):
+            st.session_state.problem_type = {"Supervisé": True, "Type": probleme_type}
+            st.session_state.classification_or_regression = probleme_type  # Save the classification or regression type
+            st.success(f"Vous avez choisi un problème de {probleme_type.lower()} supervisée.")
+    elif supervised_option == "Non Supervisé":
+        if st.button("Continuer"):
+            st.session_state.problem_type = {"Supervisé": False, "Type": "Non Supervisé"}
+            st.session_state.classification_or_regression = None  # Clear the classification or regression type
+            st.success("Vous avez choisi un problème non supervisé.")
+    else:
+        st.warning("Veuillez sélectionner une option valide.")
+
+
+
+
+
 
 
 
 # Fonction pour afficher les onglets
 def display_tabs():
-    tab1, tab2, tab3, tab4 = st.tabs(["Data", "Visualise", "Clean", "Split"])
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["Data", "Visualise", "Clean", "Split", "Choix du problème", "PCA & SMOTE"])
 
     # onglet importation des données
     with tab1:
         st.header("Data")
 
-        import_csv()
+        st.session_state.data = import_csv()  # Assign the imported data to st.session_state.data
 
         with st.form(key="Exit", border=False):
             st.form_submit_button("Exit", on_click=lambda: st.session_state.update({"page": 0}))  # Revenir à la landing page
 
-    
-    # onglet visualisation des données
+    # Onglet visualisation des données
     with tab2:
-        st.header("Visualise")
+        st.header("Visualize")
 
-        visualise_tab()
+        visualize_data()
 
-
+    
     # onglet netoyage des données  
     with tab3:
         st.header("Clean")
 
         # Appel de la fonction d'importation des données avant d'exécuter les autres fonctions
         if not check_data_exists():
-            st.session_state.data = import_csv()
+            st.warning("Veuillez importer un fichier CSV dans l'onglet 'Data' avant de nettoyer.")
+        else:
+            # Création de deux colonnes
+            left_column, right_column = st.columns(2)
 
-        # Exécution de la fonction supprimer_col()
-        supprimer_col()
+            # Dans la colonne de gauche
+            with left_column:
+                st.subheader("Actions de Nettoyage:")
+                
+                # Exécution de la fonction supprimer_col()
+                supprimer_col()
 
-        # Exécution de la fonction encodage() seulement si des données existent
-        encodage()
+                # Exécution de la fonction supprimer_lignes_dupliquees()
+                supprimer_lignes_dupliquees()
 
+                # Exécution de la fonction remplacer_valeurs_manquantes()
+                remplacer_valeurs_manquantes()
 
-        
-        
+                # Exécution de la fonction encodage() seulement si des données existent
+                encodage()
+
+                # Exécution de la fonction normaliser() seulement si des données existent
+                normaliser()
+
+            # Dans la colonne de droite
+            with right_column:
+                st.subheader("Aperçu des données:")
+                
+                # Affichage du tableau des données
+                if st.session_state.modified_data is not None:
+                    st.write("Aperçu des données après nettoyage:")
+                    st.write(st.session_state.modified_data)
+                    
+                    # Affichage de la taille des données
+                    st.write(f"Taille des données : {st.session_state.modified_data.shape}")
+                elif st.session_state.data is not None:
+                    st.warning("Aucune modification n'a été effectuée. Voici l'aperçu des données importées.")
+                    st.write("Aperçu des données importées:")
+                    st.write(st.session_state.data)
+                    # Affichage de la taille des données
+                    st.write(f"Taille des données : {st.session_state.data.shape}")
+
 
     # onglet division des données  
     with tab4:
         st.header("Split")
 
-        split_tab()
+        # Exécution de la fonction split_data()
+        split_data()
+
+    # Onglet choix du problème
+    with tab5:
+        st.header("Choix du problème")
+
+        choix_du_probleme()
+
+    with tab6:
+        st.write(st.session_state.split_data)
+
+
 
 # Fonction principale
 def main():
