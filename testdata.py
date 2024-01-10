@@ -22,6 +22,7 @@ def landing_page():
         css = f.read()
 
     st.markdown(f'<style>{css}</style>', unsafe_allow_html=True)
+
     st.markdown('<p class="font">Welcome !</p>', unsafe_allow_html=True)
 
     st.title("Bienvenue dans notre application de Machine Learning.")
@@ -57,30 +58,34 @@ def visualize_data():
 
     # Sélection des colonnes pour la visualisation
     st.subheader("Sélectionnez deux colonnes pour la visualisation:")
-    st.session_state.selected_columns = st.multiselect("Sélectionnez deux colonnes", data_to_visualize.columns, key="select_columns")
+    selection_column, display_column = st.columns(2)
 
-    # Sélection du type de graphe
-    chart_type = st.selectbox("Sélectionnez le type de graphe", ["Scatter Plot", "Line Plot", "Bar Plot"])
+    # Dans la colonne de sélection, permettez à l'utilisateur de choisir les colonnes
+    st.session_state.selected_columns = selection_column.multiselect("Sélectionnez deux colonnes", data_to_visualize.columns, key="select_columns")
 
-    # Affichage du graphe en fonction du type choisi
-    if st.button("Afficher le graphe"):
+    # Dans la colonne de sélection, permettez à l'utilisateur de choisir le graphique
+    chart_type = selection_column.selectbox("Sélectionnez le type de graphe", ["Scatter Plot", "Line Plot", "Bar Plot"])
+
+    # Dans la colonne de sélection, affichez le bouton pour afficher le graphique
+    if selection_column.button("Afficher le graphe"):
         if len(st.session_state.selected_columns) == 2:
+            # Créer la figure et les axes avec la taille spécifiée
+            fig, ax = plt.subplots(figsize=(10, 6))
+            
             if chart_type == "Scatter Plot":
-                fig, ax = plt.subplots()
                 sns.scatterplot(x=st.session_state.selected_columns[0], y=st.session_state.selected_columns[1], data=data_to_visualize, ax=ax)
-                st.pyplot(fig)
             elif chart_type == "Line Plot":
-                fig, ax = plt.subplots()
                 sns.lineplot(x=st.session_state.selected_columns[0], y=st.session_state.selected_columns[1], data=data_to_visualize, ax=ax)
-                st.pyplot(fig)
             elif chart_type == "Bar Plot":
-                fig, ax = plt.subplots()
                 sns.barplot(x=st.session_state.selected_columns[0], y=st.session_state.selected_columns[1], data=data_to_visualize, ax=ax)
-                st.pyplot(fig)
             else:
                 st.warning("Veuillez sélectionner un type de graphe valide.")
+            
+            # Afficher le graphique dans la colonne d'affichage
+            display_column.pyplot(fig)
         else:
             st.warning("Veuillez sélectionner exactement deux colonnes pour la visualisation.")
+
 
 
 
@@ -103,9 +108,27 @@ def supprimer_col():
             st.session_state.modified_data = data_to_modify
             st.success("Les colonnes sélectionnées ont été supprimées avec succès.")
             st.write("Aperçu des données après suppression :")
-            st.write(data_to_modify.head())
         else:
             st.warning("Veuillez sélectionner au moins une colonne à supprimer.")
+
+
+# Fonction pour supprimer les lignes dupliquées
+def supprimer_lignes_dupliquees():
+    st.subheader("Supprimer les lignes dupliquées:")
+
+    if st.session_state.modified_data is not None:
+        data_to_modify = st.session_state.modified_data
+    elif st.session_state.data is not None:
+        data_to_modify = st.session_state.data
+    else:
+        st.warning("Aucune donnée n'est disponible. Veuillez importer un fichier CSV dans l'onglet 'Data' avant de supprimer les lignes dupliquées.")
+        return
+
+    if st.button("Supprimer les lignes dupliquées"):
+        data_to_modify = data_to_modify.drop_duplicates()
+        st.session_state.modified_data = data_to_modify
+        st.success("Les lignes dupliquées ont été supprimées avec succès.")
+        st.write("Aperçu des données après suppression des lignes dupliquées :")
 
 
 # Fonction pour remplacer les valeurs manquantes
@@ -167,7 +190,6 @@ def encodage():
                     st.session_state.modified_data = data_to_modify
                     st.success("Encodage One-Hot appliqué avec succès.")
                     st.write("Aperçu des données après l'encodage:")
-                    st.write(data_to_modify.head())
                 elif encoding_option == "Ordinal":
                     # Implement ordinal encoding here if needed
                     st.warning("L'encodage ordinal n'est pas encore implémenté.")
@@ -201,7 +223,6 @@ def normaliser():
             st.session_state.modified_data = data_copy
             st.success("Normalisation appliquée avec succès.")
             st.write("Aperçu des données après la normalisation:")
-            st.write(data_copy.head())
     else:
         st.warning("Aucune variable numérique à normaliser.")
 
@@ -309,17 +330,46 @@ def display_tabs():
         if not check_data_exists():
             st.warning("Veuillez importer un fichier CSV dans l'onglet 'Data' avant de nettoyer.")
         else:
-            # Exécution de la fonction supprimer_col()
-            supprimer_col()
+            # Création de deux colonnes
+            left_column, right_column = st.columns(2)
 
-            # Exécution de la fonction remplacer_valeurs_manquantes()
-            remplacer_valeurs_manquantes()
+            # Dans la colonne de gauche
+            with left_column:
+                st.subheader("Actions de Nettoyage:")
+                
+                # Exécution de la fonction supprimer_col()
+                supprimer_col()
 
-            # Exécution de la fonction encodage() seulement si des données existent
-            encodage()
+                # Exécution de la fonction supprimer_lignes_dupliquees()
+                supprimer_lignes_dupliquees()
 
-            # Exécution de la fonction normaliser() seulement si des données existent
-            normaliser()
+                # Exécution de la fonction remplacer_valeurs_manquantes()
+                remplacer_valeurs_manquantes()
+
+                # Exécution de la fonction encodage() seulement si des données existent
+                encodage()
+
+                # Exécution de la fonction normaliser() seulement si des données existent
+                normaliser()
+
+            # Dans la colonne de droite
+            with right_column:
+                st.subheader("Aperçu des données:")
+                
+                # Affichage du tableau des données
+                if st.session_state.modified_data is not None:
+                    st.write("Aperçu des données après nettoyage:")
+                    st.write(st.session_state.modified_data)
+                    
+                    # Affichage de la taille des données
+                    st.write(f"Taille des données : {st.session_state.modified_data.shape}")
+                elif st.session_state.data is not None:
+                    st.warning("Aucune modification n'a été effectuée. Voici l'aperçu des données importées.")
+                    st.write("Aperçu des données importées:")
+                    st.write(st.session_state.data)
+                    # Affichage de la taille des données
+                    st.write(f"Taille des données : {st.session_state.data.shape}")
+
 
     # onglet division des données  
     with tab4:
