@@ -4,6 +4,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import OrdinalEncoder, LabelEncoder
+
 
 # Définir la largeur de la page
 st.set_page_config(layout="wide")
@@ -16,6 +18,7 @@ def init_session():
         st.session_state.columns_to_drop = []  # Initialiser la liste des colonnes à supprimer
         st.session_state.modified_data = None  # Initialiser la variable pour le DataFrame modifié
         st.session_state.split_data = None  # Initialiser la variable "split_data" à None
+        st.session_state.user_choice = None # Initialiser la variable "user_choice" à None
 
 # Fonction pour afficher la landing page
 def landing_page():
@@ -44,6 +47,26 @@ def import_csv():
 # Fonction pour vérifier si des données existent dans st.session_state.data
 def check_data_exists():
     return st.session_state.data is not None
+
+
+# Fonction pour choisir le type de problème
+def choix_du_probleme():
+    # Vérifier si des données sont disponibles
+    if st.session_state.data is not None:
+        # Affichage de la partie pour choisir le type de problème
+        st.subheader("Choisissez le type de problème:")
+        
+        supervised_options = ["Classification Supervisé", "Regression Supervisé", "Classification Non Supervisé"]
+        user_choice = st.selectbox("Supervisé ou non supervisé ?", supervised_options)
+
+        if st.button("Continuer"):
+            # Enregistrement du choix dans une variable de session
+            st.session_state.user_choice = user_choice
+            st.success(f"Vous avez choisi un problème de {st.session_state.user_choice} .")
+    else:
+        pass
+
+
 
 
 # Fonction pour visualiser les données
@@ -200,6 +223,10 @@ def remplacer_valeurs_selectionnees(data, columns, value_type, replace_option, u
         elif replace_option == "Mode":
             data[columns] = data[columns].replace(mode_value, np.nan)
     elif value_type == "Valeurs Uniques":
+        if not data[columns].isin([unique_value_to_replace]).any().any():
+            st.warning("La valeur unique que vous avez entrée n'est pas présente dans les données. Veuillez entrer une valeur existante.")
+            return
+        
         # Remplacer la valeur unique par l'option choisie
         data[columns] = data[columns].replace(unique_value_to_replace, replace_option)
 
@@ -229,7 +256,7 @@ def encodage():
         selected_columns = st.multiselect("Sélectionnez les colonnes à encoder", categorical_cols)
         
         if selected_columns:
-            encoding_option = st.selectbox("Choisissez une option d'encodage :", ["One-Hot", "Ordinal"])
+            encoding_option = st.selectbox("Choisissez une option d'encodage :", ["One-Hot", "Ordinal", "Label"])
             if st.button("Appliquer l'encodage"):
                 if encoding_option == "One-Hot":
                     data_to_modify = pd.get_dummies(data_to_modify, columns=selected_columns, drop_first=True)
@@ -237,14 +264,25 @@ def encodage():
                     st.success("Encodage One-Hot appliqué avec succès.")
                     st.write("Aperçu des données après l'encodage:")
                 elif encoding_option == "Ordinal":
-                    # Implement ordinal encoding here if needed
-                    st.warning("L'encodage ordinal n'est pas encore implémenté.")
+                    ordinal_encoder = OrdinalEncoder()
+                    data_to_modify[selected_columns] = ordinal_encoder.fit_transform(data_to_modify[selected_columns])
+                    st.session_state.modified_data = data_to_modify
+                    st.success("Encodage ordinal appliqué avec succès.")
+                    st.write("Aperçu des données après l'encodage:")
+                elif encoding_option == "Label":
+                    label_encoder = LabelEncoder()
+                    for column in selected_columns:
+                        data_to_modify[column] = label_encoder.fit_transform(data_to_modify[column])
+                    st.session_state.modified_data = data_to_modify
+                    st.success("Label encoding appliqué avec succès.")
+                    st.write("Aperçu des données après l'encodage:")
                 else:
                     st.warning("Veuillez sélectionner une option d'encodage valide.")
         else:
             st.warning("Veuillez sélectionner au moins une colonne à encoder.")
     else:
         st.warning("Aucune variable catégorielle à encoder.")
+
 
 
 
@@ -274,75 +312,99 @@ def normaliser():
 
 
 
+
 # Fonction pour diviser les données en ensemble d'entraînement et de test
 def split_data():
+    # Vérifier si des données sont disponibles
+    if st.session_state.data is None:
+        st.warning("Veuillez d'abord importer des données dans l'onglet 'Data'.")
+        return
     
+    # Vérifier si l'utilisateur a choisi le type de problème
+    if st.session_state.user_choice is None:
+        st.warning("Veuillez d'abord choisir le type de problème dans l'onglet 'Data'.")
+        return
+
+
+    # Vérifier si des données sont disponibles
     if st.session_state.modified_data is not None:
         data_to_split = st.session_state.modified_data
     elif st.session_state.data is not None:
         data_to_split = st.session_state.data
         st.warning("Vous pouvez nettoyer vos données dans l'onglet 'Clean' avant de les diviser.")
-    else:
-        st.warning("Aucune donnée n'est disponible. Veuillez importer un fichier CSV dans l'onglet 'Data' avant de diviser.")
-        return
-    
-    target_variable = st.selectbox("Sélectionnez la variable cible :", data_to_split.columns)
-    random_state = st.number_input("Sélectionnez la valeur pour 'random_state' :", min_value=0, step=1, value=42)
-    test_size_percentage = st.slider("Sélectionnez la proportion d'entraînement :", min_value=10, max_value=90, step=10, value=80)
-    
-    if st.button("Diviser les données"):
-        test_size = test_size_percentage / 100.0  # Convert percentage to fraction
-        X_train, X_test, y_train, y_test = train_test_split(
-            data_to_split.drop(columns=[target_variable]),
-            data_to_split[target_variable],
-            test_size=test_size,
-            random_state=random_state
-        )
-        st.session_state.split_data = {
-            "X_train": X_train,
-            "y_train": y_train,
-            "X_test": X_test,
-            "y_test": y_test
-        }
-        st.success("Les données ont été divisées avec succès.")
-        
-        st.write("Taille de l'ensemble d'entraînement:", len(X_train))
-        st.write("Taille de l'ensemble de test:", len(X_test))
-        
-        st.write("Aperçu de l'ensemble d'entraînement:")
-        st.write(X_train.head())
-        st.write(y_train.head())
-        
-        st.write("Aperçu de l'ensemble de test:")
-        st.write(X_test.head())
-        st.write(y_test.head())
 
+    # Si le problème est supervisé, permettre à l'utilisateur de choisir la variable cible
+    if st.session_state.user_choice in ["Classification Supervisé", "Regression Supervisé"]:
 
-# Fonction pour choisir le type de problème
-def choix_du_probleme():
-    if st.session_state.split_data is None:
-        st.warning("Veuillez diviser les données dans l'onglet 'Split' avant de continuer.")
-        return
+        target_variable = st.selectbox("Sélectionnez la variable cible :", data_to_split.columns)
+        random_state = st.number_input("Sélectionnez la valeur pour 'random_state' :", min_value=0, step=1, value=42)
+        test_size_percentage = st.slider("Sélectionnez la proportion d'entraînement :", min_value=10, max_value=90, step=1, value=80)
 
-    st.subheader("Choisissez le type de problème:")
-    supervised_option = st.radio("Supervisé ou non supervisé ?", ["Supervisé", "Non Supervisé"])
+        if st.button("Diviser les données"):
+            
+            test_size = test_size_percentage / 100.0  # Convertir le pourcentage en fraction
 
-    if supervised_option == "Supervisé":
-        probleme_type = st.radio("Classification ou Régression ?", ["Classification", "Régression"])
-        if st.button("Continuer"):
-            st.session_state.problem_type = {"Supervisé": True, "Type": probleme_type}
-            st.session_state.classification_or_regression = probleme_type  # Save the classification or regression type
-            st.success(f"Vous avez choisi un problème de {probleme_type.lower()} supervisée.")
-    elif supervised_option == "Non Supervisé":
-        if st.button("Continuer"):
-            st.session_state.problem_type = {"Supervisé": False, "Type": "Non Supervisé"}
-            st.session_state.classification_or_regression = None  # Clear the classification or regression type
-            st.success("Vous avez choisi un problème non supervisé.")
-    else:
-        st.warning("Veuillez sélectionner une option valide.")
+            X_train, X_test, y_train, y_test = train_test_split(
+                data_to_split.drop(columns=[target_variable]),
+                data_to_split[target_variable],
+                test_size=test_size,
+                random_state=random_state
+            )
 
+            st.session_state.split_data = {
+                "X_train": X_train,
+                "y_train": y_train,
+                "X_test": X_test,
+                "y_test": y_test
+            }
 
+            st.success("Les données ont été divisées avec succès.")
 
+            st.write("Taille de l'ensemble d'entraînement:", len(X_train))
+            st.write("Taille de l'ensemble de test:", len(X_test))
+
+            st.write("Aperçu de l'ensemble d'entraînement:")
+            st.write(X_train.head())
+            st.write(y_train.head())
+
+            st.write("Aperçu de l'ensemble de test:")
+            st.write(X_test.head())
+            st.write(y_test.head())
+
+    elif st.session_state.user_choice == "Classification Non Supervisé":
+
+        random_state = st.number_input("Sélectionnez la valeur pour 'random_state' :", min_value=0, step=1, value=42)
+        test_size_percentage = st.slider("Sélectionnez la proportion d'entraînement :", min_value=10, max_value=90, step=1, value=80)
+
+        if st.button("Diviser les données"):
+            
+            test_size = test_size_percentage / 100.0  # Convert percentage to fraction
+
+            X_train, X_test = train_test_split(
+                data_to_split,
+                test_size=test_size,
+                random_state=random_state
+            )
+
+            y_train, y_test = None, None
+
+            st.session_state.split_data = {
+                "X_train": X_train,
+                "y_train": y_train,
+                "X_test": X_test,
+                "y_test": y_test
+            }
+
+            st.success("Les données ont été divisées avec succès.")
+
+            st.write("Taille de l'ensemble d'entraînement:", len(X_train))
+            st.write("Taille de l'ensemble de test:", len(X_test))
+
+            st.write("Aperçu de l'ensemble d'entraînement:")
+            st.write(X_train.head())
+
+            st.write("Aperçu de l'ensemble de test:")
+            st.write(X_test.head())
 
 
 
@@ -350,13 +412,15 @@ def choix_du_probleme():
 
 # Fonction pour afficher les onglets
 def display_tabs():
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["Data", "Visualise", "Clean", "Split", "Choix du problème", "PCA & SMOTE"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["Data", "Visualise", "Clean", "Split", "PCA & SMOTE"])
 
     # onglet importation des données
     with tab1:
         st.header("Data")
 
         st.session_state.data = import_csv()  # Assign the imported data to st.session_state.data
+
+        choix_du_probleme()
 
         with st.form(key="Exit", border=False):
             st.form_submit_button("Exit", on_click=lambda: st.session_state.update({"page": 0}))  # Revenir à la landing page
@@ -436,13 +500,7 @@ def display_tabs():
         # Exécution de la fonction split_data()
         split_data()
 
-    # Onglet choix du problème
     with tab5:
-        st.header("Choix du problème")
-
-        choix_du_probleme()
-
-    with tab6:
         st.write(st.session_state.split_data)
 
 
