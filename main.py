@@ -3,8 +3,9 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OrdinalEncoder, LabelEncoder
+from sklearn.model_selection import train_test_split
+from imblearn.over_sampling import SMOTE
 
 
 # Définir la largeur de la page
@@ -251,7 +252,7 @@ def encodage():
         return
     
     categorical_cols = data_to_modify.select_dtypes(include=['object']).columns.tolist()
-    
+
     if categorical_cols:
         selected_columns = st.multiselect("Sélectionnez les colonnes à encoder", categorical_cols)
         
@@ -262,20 +263,17 @@ def encodage():
                     data_to_modify = pd.get_dummies(data_to_modify, columns=selected_columns, drop_first=True)
                     st.session_state.modified_data = data_to_modify
                     st.success("Encodage One-Hot appliqué avec succès.")
-                    st.write("Aperçu des données après l'encodage:")
                 elif encoding_option == "Ordinal":
                     ordinal_encoder = OrdinalEncoder()
                     data_to_modify[selected_columns] = ordinal_encoder.fit_transform(data_to_modify[selected_columns])
                     st.session_state.modified_data = data_to_modify
                     st.success("Encodage ordinal appliqué avec succès.")
-                    st.write("Aperçu des données après l'encodage:")
                 elif encoding_option == "Label":
                     label_encoder = LabelEncoder()
                     for column in selected_columns:
                         data_to_modify[column] = label_encoder.fit_transform(data_to_modify[column])
                     st.session_state.modified_data = data_to_modify
                     st.success("Label encoding appliqué avec succès.")
-                    st.write("Aperçu des données après l'encodage:")
                 else:
                     st.warning("Veuillez sélectionner une option d'encodage valide.")
         else:
@@ -331,7 +329,15 @@ def split_data():
         data_to_split = st.session_state.modified_data
     elif st.session_state.data is not None:
         data_to_split = st.session_state.data
-        st.warning("Vous pouvez nettoyer vos données dans l'onglet 'Clean' avant de les diviser.")
+
+
+    # Check if there are categorical columns
+    categorical_cols = data_to_split.select_dtypes(include=['object']).columns.tolist()
+
+    if categorical_cols:
+        st.warning("Votre jeu de données contient des colonnes catégorielles. Veuillez les encoder avant de diviser les données.")
+        return
+    
 
     # Si le problème est supervisé, permettre à l'utilisateur de choisir la variable cible
     if st.session_state.user_choice in ["Classification Supervisé", "Regression Supervisé"]:
@@ -406,6 +412,63 @@ def split_data():
             st.write("Aperçu de l'ensemble de test:")
             st.write(X_test.head())
 
+
+
+# Fonction pour appliquer la technique SMOTE
+def smote_function():
+    # Vérifier si des données sont disponibles
+    if st.session_state.data is None:
+        st.warning("Veuillez d'abord importer des données dans l'onglet 'Data'.")
+        return
+
+    # Vérifier si l'utilisateur a choisi le type de problème
+    if st.session_state.user_choice is None:
+        st.warning("Veuillez d'abord choisir le type de problème dans l'onglet 'Data'.")
+        return
+
+    # Vérifier si des données sont disponibles
+    if st.session_state.modified_data is not None:
+        data_to_smote = st.session_state.modified_data
+    elif st.session_state.data is not None:
+        data_to_smote = st.session_state.data
+        st.warning("Vous pouvez nettoyer vos données dans l'onglet 'Clean' avant d'appliquer SMOTE.")
+        return
+
+    # Vérifier si le problème est de classification supervisée
+    if st.session_state.user_choice == "Classification Supervisé":
+        st.header("SMOTE")
+
+        # Vérifier si l'utilisateur a déjà divisé les données
+        if "split_data" not in st.session_state or st.session_state.split_data is None:
+            st.warning("Veuillez d'abord diviser les données dans l'onglet 'Split' avant d'appliquer SMOTE.")
+            return
+
+        st.subheader("Application de la technique SMOTE:")
+        st.warning("SMOTE peut être appliqué pour traiter le déséquilibre des classes dans les problèmes de classification supervisée.")
+
+        # Assume the last column is the target variable (you can modify this based on your data)
+        target_variable = data_to_smote.columns[-1]
+
+        # Separate features and target variable
+        X = data_to_smote.drop(columns=[target_variable])
+        y = data_to_smote[target_variable]
+
+        # Button to trigger SMOTE
+        if st.button("Appliquer SMOTE"):
+            # Apply SMOTE
+            smote = SMOTE(random_state=42)
+            X_resampled, y_resampled = smote.fit_resample(X, y)
+
+            # Combine features and target variable
+            data_resampled = pd.concat([pd.DataFrame(X_resampled, columns=X.columns), pd.Series(y_resampled, name=target_variable)], axis=1)
+
+            st.session_state.modified_data = data_resampled
+            st.success("SMOTE appliqué avec succès.")
+            
+            st.write("Aperçu des données après l'application de SMOTE:")
+            st.write(data_resampled.head())
+    else:
+        pass
 
 
 
@@ -501,7 +564,9 @@ def display_tabs():
         split_data()
 
     with tab5:
-        st.write(st.session_state.split_data)
+        st.header("Advanced cleaning")
+
+        smote_function()
 
 
 
