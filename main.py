@@ -6,6 +6,7 @@ import seaborn as sns
 from sklearn.preprocessing import OrdinalEncoder, LabelEncoder
 from sklearn.model_selection import train_test_split
 from imblearn.over_sampling import SMOTE
+from sklearn.decomposition import PCA
 
 
 # Définir la largeur de la page
@@ -20,6 +21,7 @@ def init_session():
         st.session_state.modified_data = None  # Initialiser la variable pour le DataFrame modifié
         st.session_state.split_data = None  # Initialiser la variable "split_data" à None
         st.session_state.user_choice = None # Initialiser la variable "user_choice" à None
+        st.session_state.resampled_data = None # Initialiser la variable "resampled_data" à None
 
 # Fonction pour afficher la landing page
 def landing_page():
@@ -257,9 +259,15 @@ def encodage():
         selected_columns = st.multiselect("Sélectionnez les colonnes à encoder", categorical_cols)
         
         if selected_columns:
-            encoding_option = st.selectbox("Choisissez une option d'encodage :", ["One-Hot", "Ordinal", "Label"])
+            encoding_option = st.selectbox("Choisissez une option d'encodage :", ["Label" ,"One-Hot", "Ordinal"])
             if st.button("Appliquer l'encodage"):
-                if encoding_option == "One-Hot":
+                if encoding_option == "Label":
+                    label_encoder = LabelEncoder()
+                    for column in selected_columns:
+                        data_to_modify[column] = label_encoder.fit_transform(data_to_modify[column])
+                    st.session_state.modified_data = data_to_modify
+                    st.success("Label encoding appliqué avec succès.")
+                elif encoding_option == "One-Hot":
                     data_to_modify = pd.get_dummies(data_to_modify, columns=selected_columns, drop_first=True)
                     st.session_state.modified_data = data_to_modify
                     st.success("Encodage One-Hot appliqué avec succès.")
@@ -268,12 +276,6 @@ def encodage():
                     data_to_modify[selected_columns] = ordinal_encoder.fit_transform(data_to_modify[selected_columns])
                     st.session_state.modified_data = data_to_modify
                     st.success("Encodage ordinal appliqué avec succès.")
-                elif encoding_option == "Label":
-                    label_encoder = LabelEncoder()
-                    for column in selected_columns:
-                        data_to_modify[column] = label_encoder.fit_transform(data_to_modify[column])
-                    st.session_state.modified_data = data_to_modify
-                    st.success("Label encoding appliqué avec succès.")
                 else:
                     st.warning("Veuillez sélectionner une option d'encodage valide.")
         else:
@@ -416,53 +418,31 @@ def split_data():
 
 # Fonction pour appliquer la technique SMOTE
 def smote_function():
-    # Vérifier si des données sont disponibles
-    if st.session_state.data is None:
-        st.warning("Veuillez d'abord importer des données dans l'onglet 'Data'.")
-        return
-
-    # Vérifier si l'utilisateur a choisi le type de problème
-    if st.session_state.user_choice is None:
-        st.warning("Veuillez d'abord choisir le type de problème dans l'onglet 'Data'.")
-        return
-
-    # Vérifier si des données sont disponibles
-    if st.session_state.modified_data is not None:
-        data_to_smote = st.session_state.modified_data
-    elif st.session_state.data is not None:
-        data_to_smote = st.session_state.data
-        st.warning("Vous pouvez nettoyer vos données dans l'onglet 'Clean' avant d'appliquer SMOTE.")
-        return
+    # Vérifier si l'utilisateur a déjà divisé les données
+    if st.session_state.split_data is not None:
+        data_to_smote = st.session_state.split_data
 
     # Vérifier si le problème est de classification supervisée
-    if st.session_state.user_choice == "Classification Supervisé":
+    if st.session_state.user_choice == "Classification Supervisé" and st.session_state.split_data is not None:
         st.header("SMOTE")
-
-        # Vérifier si l'utilisateur a déjà divisé les données
-        if "split_data" not in st.session_state or st.session_state.split_data is None:
-            st.warning("Veuillez d'abord diviser les données dans l'onglet 'Split' avant d'appliquer SMOTE.")
-            return
-
-        st.subheader("Application de la technique SMOTE:")
-        st.warning("SMOTE peut être appliqué pour traiter le déséquilibre des classes dans les problèmes de classification supervisée.")
-
-        # Assume the last column is the target variable (you can modify this based on your data)
-        target_variable = data_to_smote.columns[-1]
-
-        # Separate features and target variable
-        X = data_to_smote.drop(columns=[target_variable])
-        y = data_to_smote[target_variable]
 
         # Button to trigger SMOTE
         if st.button("Appliquer SMOTE"):
-            # Apply SMOTE
+            # Get the target variable from the split data
+            target_variable = data_to_smote["y_train"].name
+
+            # Separate features and target variable
+            X_train, y_train = data_to_smote["X_train"], data_to_smote["y_train"]
+
+
+            # Apply SMOTE only on training data
             smote = SMOTE(random_state=42)
-            X_resampled, y_resampled = smote.fit_resample(X, y)
+            X_resampled, y_resampled = smote.fit_resample(X_train, y_train)
 
             # Combine features and target variable
-            data_resampled = pd.concat([pd.DataFrame(X_resampled, columns=X.columns), pd.Series(y_resampled, name=target_variable)], axis=1)
+            data_resampled = pd.concat([pd.DataFrame(X_resampled, columns=X_train.columns), pd.Series(y_resampled, name=target_variable)], axis=1)
 
-            st.session_state.modified_data = data_resampled
+            st.session_state.resampled_data = data_resampled
             st.success("SMOTE appliqué avec succès.")
             
             st.write("Aperçu des données après l'application de SMOTE:")
@@ -472,10 +452,71 @@ def smote_function():
 
 
 
+# Fonction pour appliquer l'analyse en composantes principales (PCA)
+def apply_pca():
+    # Vérifier si des données sont disponibles
+    if st.session_state.data is None:
+        st.warning("Veuillez d'abord importer des données dans l'onglet 'Data'.")
+        return
+
+    # Vérifier si l'utilisateur a choisi le type de problème
+    if st.session_state.user_choice is None:
+        st.warning("Veuillez d'abord choisir le type de problème dans l'onglet 'Data'.")
+        return
+    
+    # Vérifier si l'utilisateur a déjà divisé les données
+    if st.session_state.split_data is None:
+        st.warning("Veuillez d'abord diviser les données dans l'onglet 'Split'.")
+    else:
+        data_for_pca = st.session_state.split_data
+
+    # Vérifier si le problème est de classification supervisée
+    if st.session_state.user_choice in ["Classification Supervisé", "Regression Supervisé"] and st.session_state.split_data is not None:
+        # Button to apply PCA
+        if st.button("Appliquer PCA"):
+            # Separate features and target variable
+            X_train, y_train = data_for_pca["X_train"], data_for_pca["y_train"]
+
+            # Apply PCA only on training data
+            pca = PCA()
+            X_pca = pca.fit_transform(X_train)
+
+            # Combine transformed features and target variable
+            data_pca = pd.concat([pd.DataFrame(X_pca, columns=[f"PC{i}" for i in range(1, X_pca.shape[1] + 1)]), y_train.reset_index(drop=True)], axis=1)
+
+            st.session_state.resampled_data = data_pca
+            st.success("PCA appliqué avec succès.")
+
+            st.write("Aperçu des données après l'application de PCA:")
+            st.write(data_pca.head())
+    elif st.session_state.user_choice in ["Classification Non Supervisé"] and st.session_state.split_data is not None:
+        # Button to apply PCA
+        if st.button("Appliquer PCA"):
+            # Unsupervised PCA for Classification Non Supervisé
+            X = data_for_pca["X_train"]
+
+            # Apply PCA to the entire dataset
+            pca = PCA()
+            X_pca = pca.fit_transform(X)
+
+            # Combine transformed features
+            data_pca = pd.DataFrame(X_pca, columns=[f"PC{i}" for i in range(1, X_pca.shape[1] + 1)])
+
+            st.session_state.resampled_data = data_pca
+            st.success("PCA appliqué avec succès.")
+
+            st.write("Aperçu des données après l'application de PCA:")
+            st.write(data_pca.head())
+    else:
+        pass
+
+
+
+
 
 # Fonction pour afficher les onglets
 def display_tabs():
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(["Data", "Visualise", "Clean", "Split", "PCA & SMOTE"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["Data", "Visualise", "Clean", "Split", "Resampling Data"])
 
     # onglet importation des données
     with tab1:
@@ -564,7 +605,9 @@ def display_tabs():
         split_data()
 
     with tab5:
-        st.header("Advanced cleaning")
+        st.header("Resampling Data")
+
+        apply_pca()
 
         smote_function()
 
