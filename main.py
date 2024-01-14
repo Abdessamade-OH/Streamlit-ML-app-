@@ -1,3 +1,8 @@
+from sklearn.cluster import KMeans
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
+from sklearn.svm import SVC, SVR
+from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -7,8 +12,8 @@ from sklearn.preprocessing import OrdinalEncoder, LabelEncoder
 from sklearn.model_selection import train_test_split
 from imblearn.over_sampling import SMOTE
 from sklearn.decomposition import PCA
-from sklearn.linear_model import LogisticRegression
-
+from sklearn.linear_model import LinearRegression, LogisticRegression
+from sklearn.naive_bayes import GaussianNB, MultinomialNB, BernoulliNB
 
 # Définir la largeur de la page
 st.set_page_config(layout="wide")
@@ -363,7 +368,6 @@ def normaliser():
             data_copy[numerical_cols] = (data_copy[numerical_cols] - data_copy[numerical_cols].min()) / (data_copy[numerical_cols].max() - data_copy[numerical_cols].min())
             st.session_state.modified_data = data_copy
             st.success("Normalisation appliquée avec succès.")
-            st.write("Aperçu des données après la normalisation:")
     else:
         st.warning("Aucune variable numérique à normaliser.")
 
@@ -705,12 +709,17 @@ def choisir_hyperparametres():
         elif algorithm_choice in ["Arbre de décision CART"]:
             max_depth = st.number_input("Profondeur maximale de l'arbre :", min_value=1, max_value=20, step=1, value=3)
             hyperparameters["max_depth"] = max_depth
-            criterion = st.radio("Critère de division :", ["gini", "entropy"])
-            hyperparameters["criterion"] = criterion
+            if st.session_state.user_choice == "Classification Supervisé":
+                criterion_options = st.radio("Critère de division :", ["gini", "entropy"])
+            elif st.session_state.user_choice == "Regression Supervisé":
+                criterion_options = st.radio("Critère de division :", ["absolute_error", "poisson", "squared_error", "friedman_mse"])
+            else:
+                st.warning("Type de problème non pris en charge.")
+            hyperparameters["criterion"] = criterion_options
 
         elif algorithm_choice == "Naif bayes":
-            # Naive Bayes n'a généralement pas d'hyperparamètres spécifiques à ajuster
-            pass
+            nb_type = st.radio("Type de Naive Bayes :", ["Gaussian", "Multinomial", "Bernoulli"])
+            hyperparameters["nb_type"] = nb_type
 
         elif algorithm_choice == "SVM":
             kernel = st.radio("Type de noyau :", ["linear", "poly", "rbf", "sigmoid"])
@@ -731,8 +740,12 @@ def choisir_hyperparametres():
             hyperparameters["max_depth_rf"] = max_depth_rf
 
         elif algorithm_choice == "Regression linéaire":
-            learning_rate = st.number_input("Taux d'apprentissage (Learning Rate) :", min_value=0.001, max_value=0.1, step=0.001, value=0.01)
-            hyperparameters["learning_rate"] = learning_rate
+            # Regression linéaire n'a généralement pas d'hyperparamètres spécifiques à ajuster
+            pass
+
+        elif algorithm_choice == "K-means":
+            n_clusters = st.number_input("Nombre de clusters :", min_value=2, max_value=20, step=1, value=8)
+            hyperparameters["n_clusters"] = n_clusters
 
         # Afficher le bouton pour confirmer les hyperparamètres
         if st.button("Confirmer les Hyperparamètres"):
@@ -756,20 +769,37 @@ def execute_algorithm():
             # Exécuter l'algorithme en fonction du choix de l'utilisateur
             if algorithm_choice == "Regression logistique":
                 execute_logistic_regression(hyperparameters, model_data)
+
             elif algorithm_choice == "Arbre de décision CART":
-                execute_decision_tree(hyperparameters, model_data)
+                if st.session_state.user_choice == "Classification Supervisé":
+                    execute_decision_tree_classifier(hyperparameters, model_data)
+                elif st.session_state.user_choice == "Regression Supervisé":
+                    execute_decision_tree_regressor(hyperparameters, model_data)
+
             elif algorithm_choice == "Naif bayes":
                 execute_naive_bayes(hyperparameters, model_data)
+
             elif algorithm_choice == "SVM":
-                execute_svm(hyperparameters, model_data)
+                if st.session_state.user_choice == "Classification Supervisé":
+                    execute_svm_classifier(hyperparameters, model_data)
+                elif st.session_state.user_choice == "Regression Supervisé":
+                    execute_svm_regressor(hyperparameters, model_data)
+
             elif algorithm_choice == "KNN":
-                execute_knn(hyperparameters, model_data)
+                if st.session_state.user_choice == "Classification Supervisé":
+                    execute_knn_classifier(hyperparameters, model_data)
+                elif st.session_state.user_choice == "Regression Supervisé":
+                    execute_knn_regressor(hyperparameters, model_data)
+
             elif algorithm_choice == "Random forest":
-                execute_random_forest(hyperparameters, model_data)
+                if st.session_state.user_choice == "Classification Supervisé":
+                    execute_random_forest_classifier(hyperparameters, model_data)
+                elif st.session_state.user_choice == "Regression Supervisé":
+                    execute_random_forest_regressor(hyperparameters, model_data)
+
             elif algorithm_choice == "Regression linéaire":
-                execute_linear_regression(hyperparameters, model_data)
-            elif algorithm_choice == "CART":
-                execute_cart(hyperparameters, model_data)
+                execute_linear_regression(model_data)
+
             elif algorithm_choice == "K-means":
                 execute_kmeans(hyperparameters, model_data)
     else:
@@ -787,9 +817,163 @@ def execute_logistic_regression(hyperparameters, model_data):
     except Exception as e:
         st.error(f"Erreur lors de l'entraînement de la régression logistique : {str(e)}")
 
+def execute_decision_tree_classifier(hyperparameters, model_data):
+    max_depth = hyperparameters.get("max_depth", 3)  # Default to 3 if not specified
+    criterion = hyperparameters.get("criterion", "gini")  # Default to "gini" if not specified
 
+    try:
+        model = DecisionTreeClassifier(max_depth=max_depth, criterion=criterion)
+        # Extracting data from the model_data dictionary
+        X_train, y_train = model_data["X_train"], model_data["y_train"]
 
+        model.fit(X_train, y_train)
+        st.success("Decision Tree (Classifier) executed successfully.")
+    except Exception as e:
+        st.error(f"Error during Decision Tree (Classifier) training: {str(e)}")
 
+def execute_decision_tree_regressor(hyperparameters, model_data):
+    max_depth = hyperparameters.get("max_depth", 3)  # Default to 3 if not specified
+    criterion = hyperparameters.get("criterion", "squared_error")  # Default to "squared_error" if not specified
+
+    try:
+        model = DecisionTreeRegressor(max_depth=max_depth, criterion=criterion)
+        # Extracting data from the model_data dictionary
+        X_train, y_train = model_data["X_train"], model_data["y_train"]
+
+        model.fit(X_train, y_train)
+        st.success("Decision Tree (Regressor) executed successfully.")
+    except Exception as e:
+        st.error(f"Error during Decision Tree (Regressor) training: {str(e)}")
+        
+def execute_linear_regression(model_data):
+    model = LinearRegression()
+    # Extracting data from the split_data dictionary
+    X_train, y_train = model_data["X_train"], model_data["y_train"]
+
+    try:
+        model.fit(X_train, y_train)
+        st.success("Régression linéaire exécutée avec succès.")
+    except Exception as e:
+        st.error(f"Erreur lors de l'entraînement de la régression linéaire : {str(e)}")
+
+def execute_naive_bayes(hyperparameters, model_data):
+    nb_type = hyperparameters.get("nb_type", "Gaussian")  # Default to Gaussian if not specified
+
+    try:
+        if nb_type == "Gaussian":
+            model = GaussianNB()
+        elif nb_type == "Multinomial":
+            model = MultinomialNB()
+        elif nb_type == "Bernoulli":
+            model = BernoulliNB()
+        else:
+            raise ValueError("Invalid Naive Bayes type selected.")
+        
+        # Extracting data from the model_data dictionary
+        X_train, y_train = model_data["X_train"], model_data["y_train"]
+
+        model.fit(X_train, y_train)
+        st.success("Naive Bayes executed successfully.")
+    except Exception as e:
+        st.error(f"Error during Naive Bayes training: {str(e)}")
+
+def execute_svm_classifier(hyperparameters, model_data):
+    kernel = hyperparameters.get("kernel", "rbf")  # Default to "rbf" if not specified
+    C_svm = hyperparameters.get("C_svm", 1.0)  # Default to 1.0 if not specified
+
+    try:
+        model = SVC(kernel=kernel, C=C_svm)
+        # Extracting data from the model_data dictionary
+        X_train, y_train = model_data["X_train"], model_data["y_train"]
+
+        model.fit(X_train, y_train)
+        st.success("SVM (Classifier) executed successfully.")
+    except Exception as e:
+        st.error(f"Error during SVM (Classifier) training: {str(e)}")
+
+def execute_svm_regressor(hyperparameters, model_data):
+    kernel = hyperparameters.get("kernel", "rbf")  # Default to "rbf" if not specified
+    C_svm = hyperparameters.get("C_svm", 1.0)  # Default to 1.0 if not specified
+
+    try:
+        model = SVR(kernel=kernel, C=C_svm)
+        # Extracting data from the model_data dictionary
+        X_train, y_train = model_data["X_train"], model_data["y_train"]
+
+        model.fit(X_train, y_train)
+        st.success("SVM (Regressor) executed successfully.")
+    except Exception as e:
+        st.error(f"Error during SVM (Regressor) training: {str(e)}")
+        
+def execute_knn_classifier(hyperparameters, model_data):
+    n_neighbors = hyperparameters.get("n_neighbors", 5)  # Default to 5 if not specified
+    algorithm_knn = hyperparameters.get("algorithm_knn", "auto")  # Default to "auto" if not specified
+
+    try:
+        model = KNeighborsClassifier(n_neighbors=n_neighbors, algorithm=algorithm_knn)
+        # Extracting data from the model_data dictionary
+        X_train, y_train = model_data["X_train"], model_data["y_train"]
+
+        model.fit(X_train, y_train)
+        st.success("K-Nearest Neighbors (Classifier) executed successfully.")
+    except Exception as e:
+        st.error(f"Error during K-Nearest Neighbors (Classifier) training: {str(e)}")
+
+def execute_knn_regressor(hyperparameters, model_data):
+    n_neighbors = hyperparameters.get("n_neighbors", 5)  # Default to 5 if not specified
+    algorithm_knn = hyperparameters.get("algorithm_knn", "auto")  # Default to "auto" if not specified
+
+    try:
+        model = KNeighborsRegressor(n_neighbors=n_neighbors, algorithm=algorithm_knn)
+        # Extracting data from the model_data dictionary
+        X_train, y_train = model_data["X_train"], model_data["y_train"]
+
+        model.fit(X_train, y_train)
+        st.success("K-Nearest Neighbors (Regressor) executed successfully.")
+    except Exception as e:
+        st.error(f"Error during K-Nearest Neighbors (Regressor) training: {str(e)}")
+
+def execute_random_forest_classifier(hyperparameters, model_data):
+    n_estimators = hyperparameters.get("n_estimators", 10)  # Default to 10 if not specified
+    max_depth_rf = hyperparameters.get("max_depth_rf", 3)  # Default to 3 if not specified
+
+    try:
+        model = RandomForestClassifier(n_estimators=n_estimators, max_depth=max_depth_rf)
+        # Extracting data from the model_data dictionary
+        X_train, y_train = model_data["X_train"], model_data["y_train"]
+
+        model.fit(X_train, y_train)
+        st.success("Random Forest (Classifier) executed successfully.")
+    except Exception as e:
+        st.error(f"Error during Random Forest (Classifier) training: {str(e)}")
+
+def execute_random_forest_regressor(hyperparameters, model_data):
+    n_estimators = hyperparameters.get("n_estimators", 10)  # Default to 10 if not specified
+    max_depth_rf = hyperparameters.get("max_depth_rf", 3)  # Default to 3 if not specified
+
+    try:
+        model = RandomForestRegressor(n_estimators=n_estimators, max_depth=max_depth_rf)
+        # Extracting data from the model_data dictionary
+        X_train, y_train = model_data["X_train"], model_data["y_train"]
+
+        model.fit(X_train, y_train)
+        st.success("Random Forest (Regressor) executed successfully.")
+    except Exception as e:
+        st.error(f"Error during Random Forest (Regressor) training: {str(e)}")
+        
+def execute_kmeans(hyperparameters, model_data):
+    n_clusters = hyperparameters.get("n_clusters", 8)  # Default to 8 clusters if not specified
+
+    try:
+        model = KMeans(n_clusters=n_clusters)
+        # Extracting data from the model_data dictionary
+        X_train = model_data["X_train"]
+
+        model.fit(X_train)
+        st.success("K-means executed successfully.")
+    except Exception as e:
+        st.error(f"Error during K-means clustering: {str(e)}")
+        
 # Fonction pour afficher les onglets
 def display_tabs():
     tab1, tab2, tab3, tab4, tab5, tab6= st.tabs(["Data", "Visualise", "Clean", "Split", "Resampling Data", "Choix de l'algorithme"])
