@@ -7,6 +7,7 @@ from sklearn.preprocessing import OrdinalEncoder, LabelEncoder
 from sklearn.model_selection import train_test_split
 from imblearn.over_sampling import SMOTE
 from sklearn.decomposition import PCA
+from sklearn.linear_model import LogisticRegression
 
 
 # Définir la largeur de la page
@@ -698,7 +699,7 @@ def choisir_hyperparametres():
         if algorithm_choice in ["Regression logistique"]:
             C = st.number_input("Paramètre C :", min_value=0.1, max_value=10.0, step=0.1, value=1.0)
             hyperparameters["C"] = C
-            penalty = st.radio("Choix de la pénalité :", ["l1", "l2"])
+            penalty = st.radio("Choix de la pénalité :", ["l2", "none"])
             hyperparameters["penalty"] = penalty
 
         elif algorithm_choice in ["Arbre de décision CART"]:
@@ -739,6 +740,53 @@ def choisir_hyperparametres():
             st.success("Hyperparamètres confirmés avec succès.")
     else:
         pass
+
+
+def execute_algorithm():
+    if st.session_state.model_hyperparameters is not None:
+        if st.button("Entraîner le modèle"):
+            algorithm_choice = st.session_state.algorithm_choice
+            hyperparameters = st.session_state.model_hyperparameters
+
+            if st.session_state.split_data is not None :
+                model_data = st.session_state.split_data
+            elif st.session_state.resampled_data is not None:
+                model_data = st.session_state.resampled_data
+
+            # Exécuter l'algorithme en fonction du choix de l'utilisateur
+            if algorithm_choice == "Regression logistique":
+                execute_logistic_regression(hyperparameters, model_data)
+            elif algorithm_choice == "Arbre de décision CART":
+                execute_decision_tree(hyperparameters, model_data)
+            elif algorithm_choice == "Naif bayes":
+                execute_naive_bayes(hyperparameters, model_data)
+            elif algorithm_choice == "SVM":
+                execute_svm(hyperparameters, model_data)
+            elif algorithm_choice == "KNN":
+                execute_knn(hyperparameters, model_data)
+            elif algorithm_choice == "Random forest":
+                execute_random_forest(hyperparameters, model_data)
+            elif algorithm_choice == "Regression linéaire":
+                execute_linear_regression(hyperparameters, model_data)
+            elif algorithm_choice == "CART":
+                execute_cart(hyperparameters, model_data)
+            elif algorithm_choice == "K-means":
+                execute_kmeans(hyperparameters, model_data)
+    else:
+        pass
+
+
+def execute_logistic_regression(hyperparameters, model_data):
+    model = LogisticRegression(**hyperparameters)
+    # Extracting data from the split_data dictionary
+    X_train, y_train = model_data["X_train"], model_data["y_train"]
+
+    try:
+        model.fit(X_train, y_train)
+        st.success("Régression logistique exécutée avec succès.")
+    except Exception as e:
+        st.error(f"Erreur lors de l'entraînement de la régression logistique : {str(e)}")
+
 
 
 
@@ -808,24 +856,37 @@ def display_tabs():
                     
                     # Affichage de la taille des données
                     st.write(f"Taille des données : {st.session_state.modified_data.shape}")
-                    # Affichage du nombre de valeurs manquantes par colonne
-                    st.write("Nombre de valeurs manquantes par colonne:")
-                    st.write(st.session_state.modified_data.isnull().sum())
-                    # Affichage du nombre de NaN values par colonne
-                    st.write("Nombre de NaN values par colonne:")
-                    st.write(st.session_state.modified_data.isna().sum())
+                    column1, column2 = st.columns(2)
+                    with column1:
+                        # Affichage du nombre de valeurs manquantes par colonne
+                        st.write("Nombre de valeurs manquantes par colonne:")
+                        st.write(st.session_state.modified_data.isnull().sum())
+                        # Display the modified_data types of each column
+                        st.write("Types de chaque colonne:")
+                        st.write(st.session_state.modified_data.dtypes)
+                    with column2:
+                        # Affichage du nombre de NaN values par colonne
+                        st.write("Nombre de NaN values par colonne:")
+                        st.write(st.session_state.data.isna().sum())
                 elif st.session_state.data is not None:
                     st.warning("Aucune modification n'a été effectuée. Voici l'aperçu des données importées.")
                     st.write("Aperçu des données importées:")
                     st.write(st.session_state.data)
                     # Affichage de la taille des données
                     st.write(f"Taille des données : {st.session_state.data.shape}")
-                    # Affichage du nombre de valeurs manquantes par colonne
-                    st.write("Nombre de valeurs manquantes par colonne:")
-                    st.write(st.session_state.data.isnull().sum())
-                    # Affichage du nombre de NaN values par colonne
-                    st.write("Nombre de NaN values par colonne:")
-                    st.write(st.session_state.data.isna().sum())
+                    column1, column2 = st.columns(2)
+                    with column1:
+                        # Affichage du nombre de valeurs manquantes par colonne
+                        st.write("Nombre de valeurs manquantes par colonne:")
+                        st.write(st.session_state.data.isnull().sum())
+                        # Display the data types of each column
+                        st.write("Types de chaque colonne:")
+                        st.write(st.session_state.data.dtypes)
+                    with column2:
+                        # Affichage du nombre de NaN values par colonne
+                        st.write("Nombre de NaN values par colonne:")
+                        st.write(st.session_state.data.isna().sum())
+                    
 
 
     # onglet division des données  
@@ -861,6 +922,8 @@ def display_tabs():
         choix_algorithme()
 
         choisir_hyperparametres()
+
+        execute_algorithm()
 
 
 
