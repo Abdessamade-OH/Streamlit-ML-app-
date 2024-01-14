@@ -68,6 +68,53 @@ def choix_du_probleme():
         pass
 
 
+# Define a function to create a dynamic dataframe
+def create_dynamic_dataframe():
+    # Create an empty dataframe with two columns: column-name and column-type
+    df = pd.DataFrame([], columns=["column-name", "column-type"])
+
+    # Display the dataframe in a data editor widget and let the user enter the column names and types
+    edited_df = st.data_editor(df, num_rows="dynamic")
+
+    # Validate the column types using a predefined list of options
+    options = ["int", "float", "str", "bool"]
+    valid = True
+    for col_type in edited_df["column-type"]:
+        if col_type not in options:
+            valid = False
+            break
+
+    # If the column types are valid, create a new dataframe with the specified column names and types
+    if valid:
+        # Create a list of column names and types
+        col_names = edited_df["column-name"].tolist()
+        col_types = edited_df["column-type"].tolist()
+
+        # Create an empty dataframe with the specified column names
+        df = pd.DataFrame([], columns=col_names)
+
+        # Convert the column types according to the user input
+        for col_name, col_type in zip(col_names, col_types):
+            if col_type == "int":
+                df[col_name] = df[col_name].astype(int)
+            elif col_type == "float":
+                df[col_name] = df[col_name].astype(float)
+            elif col_type == "str":
+                df[col_name] = df[col_name].astype(str)
+            elif col_type == "bool":
+                df[col_name] = df[col_name].astype(bool)
+
+        # Display the dataframe in a data editor widget and let the user add rows
+        edited_df = st.data_editor(df, num_rows="dynamic")
+
+        # Return the edited dataframe
+        return edited_df
+
+    # If the column types are not valid, display an error message and ask the user to correct them
+    else:
+        st.error("Invalid column type. Please enter one of the following options: int, float, str, bool.")
+        return None
+
 
 
 # Fonction pour visualiser les données
@@ -484,6 +531,13 @@ def display_tabs():
         st.session_state.data = import_csv()  # Assign the imported data to st.session_state.data
 
         choix_du_probleme()
+        
+        # Example usage:
+        # Call the function and assign the output to a variable
+        df = create_dynamic_dataframe()
+
+        # Display the variable
+        st.write(df)
 
         with st.form(key="Exit", border=False):
             st.form_submit_button("Exit", on_click=lambda: st.session_state.update({"page": 0}))  # Revenir à la landing page
@@ -524,6 +578,7 @@ def display_tabs():
 
                 # Exécution de la fonction normaliser() seulement si des données existent
                 normaliser()
+
 
             # Dans la colonne de droite
             with right_column:
