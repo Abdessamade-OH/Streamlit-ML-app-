@@ -22,6 +22,8 @@ def init_session():
         st.session_state.split_data = None  # Initialiser la variable "split_data" à None
         st.session_state.user_choice = None # Initialiser la variable "user_choice" à None
         st.session_state.resampled_data = None # Initialiser la variable "resampled_data" à None
+        st.session_state.algorithm_choice = None # Initialiser la variable "algorithm_choice" à None
+        st.session_state.model_hyperparameters = None # Initialiser la variable "model_hyperparameters" à None
 
 # Fonction pour afficher la landing page
 def landing_page():
@@ -174,7 +176,15 @@ def remplacer_valeurs():
 
     # Choix entre remplacer les valeurs manquantes, NaN ou valeurs uniques
     value_type = st.radio("Choisissez le type de valeurs à remplacer :", ["Valeurs Manquantes", "NaN", "Valeurs Uniques"])
-    selected_columns = st.multiselect("Sélectionnez les colonnes à modifier", data_to_modify.columns)
+    
+    # Add an option to select all columns
+    all_columns_option = "Toutes les colonnes"
+    columns_with_all_option = [all_columns_option] + data_to_modify.columns.tolist()
+    selected_columns = st.multiselect("Sélectionnez les colonnes à modifier", columns_with_all_option)
+
+    # Check if the user selected "Toutes les colonnes" and replace with all columns
+    if all_columns_option in selected_columns:
+        selected_columns = data_to_modify.columns.tolist()
 
     # Choix entre 0, moyenne, medianne, mode pour le remplacement
     replace_option = st.selectbox("Choisissez une option de remplacement :", ["0", "Moyenne", "Médiane", "Mode"])
@@ -237,8 +247,48 @@ def remplacer_valeurs_selectionnees(data, columns, value_type, replace_option, u
     st.success("Le remplacement a été effectué avec succès.")
 
 
+def convert_object_columns_to_float():
+    st.subheader("Conversion des colonnes d'objet en float:")
+
+    if st.session_state.modified_data is not None:
+        data_to_modify = st.session_state.modified_data
+    elif st.session_state.data is not None:
+        data_to_modify = st.session_state.data
+    else:
+        st.warning("Aucune donnée n'est disponible. Veuillez importer un fichier CSV dans l'onglet 'Data' avant de faire la conversion.")
+        return
+
+    object_cols = data_to_modify.select_dtypes(include=['object']).columns.tolist()
+
+    # Add an option to select all columns
+    all_columns_option = "Toutes les colonnes"
+    object_cols_dropdown = [all_columns_option] + object_cols
+    selected_columns = st.multiselect("Sélectionnez les colonnes à convertir", object_cols_dropdown)
+
+    if st.button("Appliquer la conversion"):
+        if all_columns_option in selected_columns:
+            # Convert all object columns
+            for column in object_cols:
+                if all(pd.to_numeric(data_to_modify[column], errors='coerce').notnull()):
+                    data_to_modify[column] = pd.to_numeric(data_to_modify[column], errors='coerce')
+                    st.success(f"Conversion réussie pour la colonne {column}.")
+                else:
+                    st.warning(f"La colonne {column} contient des valeurs non numériques.")
+        elif selected_columns:
+            # Convert selected columns
+            for column in selected_columns:
+                if column != all_columns_option:
+                    if all(pd.to_numeric(data_to_modify[column], errors='coerce').notnull()):
+                        data_to_modify[column] = pd.to_numeric(data_to_modify[column], errors='coerce')
+                        st.success(f"Conversion réussie pour la colonne {column}.")
+                    else:
+                        st.warning(f"La colonne {column} contient des valeurs non numériques.")
+        else:
+            st.warning("Veuillez sélectionner au moins une colonne à convertir.")
+        
 
 
+    
 
 
 # Fonction pour encodage des variables catégorielles
@@ -256,7 +306,13 @@ def encodage():
     categorical_cols = data_to_modify.select_dtypes(include=['object']).columns.tolist()
 
     if categorical_cols:
-        selected_columns = st.multiselect("Sélectionnez les colonnes à encoder", categorical_cols)
+        # Add an option to select all columns
+        all_columns_option = "Toutes les colonnes"
+        columns_with_all_option = [all_columns_option] + categorical_cols
+        selected_columns = st.multiselect("Sélectionnez les colonnes à encoder", columns_with_all_option)
+        
+        if all_columns_option in selected_columns:
+            selected_columns = categorical_cols
         
         if selected_columns:
             encoding_option = st.selectbox("Choisissez une option d'encodage :", ["Label" ,"One-Hot", "Ordinal"])
@@ -467,18 +523,23 @@ def apply_pca():
     # Vérifier si l'utilisateur a déjà divisé les données
     if st.session_state.split_data is None:
         st.warning("Veuillez d'abord diviser les données dans l'onglet 'Split'.")
+        return
     else:
         data_for_pca = st.session_state.split_data
 
     # Vérifier si le problème est de classification supervisée
-    if st.session_state.user_choice in ["Classification Supervisé", "Regression Supervisé"] and st.session_state.split_data is not None:
-        # Button to apply PCA
-        if st.button("Appliquer PCA"):
-            # Separate features and target variable
-            X_train, y_train = data_for_pca["X_train"], data_for_pca["y_train"]
+    if st.session_state.user_choice in ["Classification Supervisé", "Regression Supervisé"]:
+        # Separate features and target variable
+        X_train, y_train = data_for_pca["X_train"], data_for_pca["y_train"]
 
-            # Apply PCA only on training data
-            pca = PCA()
+        num_components = X_train.shape[1]
+
+        # User input for the number of components
+        num_components_user = st.number_input("Choisissez le nombre de composantes pour PCA:", min_value=1, max_value=num_components, value=num_components, step=1)
+
+        # Apply PCA with the chosen number of components
+        if st.button("Appliquer PCA"):
+            pca = PCA(n_components=num_components_user)
             X_pca = pca.fit_transform(X_train)
 
             # Combine transformed features and target variable
@@ -489,15 +550,20 @@ def apply_pca():
 
             st.write("Aperçu des données après l'application de PCA:")
             st.write(data_pca.head())
-    elif st.session_state.user_choice in ["Classification Non Supervisé"] and st.session_state.split_data is not None:
-        # Button to apply PCA
-        if st.button("Appliquer PCA"):
-            # Unsupervised PCA for Classification Non Supervisé
-            X = data_for_pca["X_train"]
 
-            # Apply PCA to the entire dataset
-            pca = PCA()
-            X_pca = pca.fit_transform(X)
+    elif st.session_state.user_choice in ["Classification Non Supervisé"]:
+        # Unsupervised PCA for Classification Non Supervisé
+        X_train = data_for_pca["X_train"]
+
+        num_components = X_train.shape[1]
+
+        # User input for the number of components
+        num_components_user = st.number_input("Choisissez le nombre de composantes pour PCA:", min_value=1, max_value=num_components, value=num_components, step=1)
+
+        # Apply PCA with the chosen number of components
+        if st.button("Appliquer PCA"):
+            pca = PCA(n_components=num_components_user)
+            X_pca = pca.fit_transform(data_for_pca["X_train"])
 
             # Combine transformed features
             data_pca = pd.DataFrame(X_pca, columns=[f"PC{i}" for i in range(1, X_pca.shape[1] + 1)])
@@ -507,16 +573,178 @@ def apply_pca():
 
             st.write("Aperçu des données après l'application de PCA:")
             st.write(data_pca.head())
+
+    else:
+        pass
+
+
+# Fonction pour afficher la méthode du coude
+def plot_elbow_method():
+    # Vérifier si des données sont disponibles
+    if st.session_state.data is None:
+        return
+
+    # Vérifier si l'utilisateur a choisi le type de problème
+    if st.session_state.user_choice is None:
+        return
+    
+    # Vérifier si l'utilisateur a déjà divisé les données
+    if st.session_state.split_data is None:
+        return
+    else:
+        data_for_pca = st.session_state.split_data
+        
+
+    # Vérifier si le problème est de classification supervisée
+    if st.session_state.user_choice in ["Classification Supervisé", "Regression Supervisé"]:
+        # Separate features and target variable
+        X_train = data_for_pca["X_train"]
+
+        # Perform the elbow method to determine the optimal number of components
+        st.subheader("Méthode du coude pour déterminer le nombre optimal de composantes:")
+
+        # Automatically set num_components to be the minimum between the number of rows and columns in X_train
+        num_components = X_train.shape[1]
+        pca = PCA(n_components=num_components)
+        X_pca = pca.fit_transform(X_train)
+
+        # Plot the explained variance ratio
+        explained_variance_ratio = pca.explained_variance_ratio_
+        cumulative_variance_ratio = explained_variance_ratio.cumsum()
+
+        fig, ax = plt.subplots()
+        ax.plot(range(1, num_components + 1), cumulative_variance_ratio, marker='o', linestyle='-', color='b')
+        ax.set_xlabel('Nombre de composantes')
+        ax.set_ylabel('Variance cumulée expliquée')
+        ax.set_title('Méthode du coude pour PCA')
+
+        # Display the plot
+        st.pyplot(fig)
+
+    elif st.session_state.user_choice in ["Classification Non Supervisé"]:
+        # Unsupervised PCA for Classification Non Supervisé
+        X_train = data_for_pca["X_train"]
+
+        # Perform the elbow method to determine the optimal number of components for Unsupervised PCA
+        st.subheader("Méthode du coude pour déterminer le nombre optimal de composantes:")
+
+        # Automatically set num_components to be the minimum between the number of rows and columns in X_train
+        num_components = X_train.shape[1]
+        pca = PCA(n_components=num_components)
+        X_pca = pca.fit_transform(X_train)
+
+        # Plot the explained variance ratio
+        explained_variance_ratio = pca.explained_variance_ratio_
+        cumulative_variance_ratio = explained_variance_ratio.cumsum()
+
+        fig, ax = plt.subplots()
+        ax.plot(range(1, num_components + 1), cumulative_variance_ratio, marker='o', linestyle='-', color='b')
+        ax.set_xlabel('Nombre de composantes')
+        ax.set_ylabel('Variance cumulée expliquée')
+        ax.set_title('Méthode du coude pour PCA')
+
+        # Display the plot
+        st.pyplot(fig)
+
     else:
         pass
 
 
 
+def choix_algorithme():
+    # Vérifier si des données sont disponibles
+    if st.session_state.data is None:
+        st.warning("Veuillez d'abord importer des données dans l'onglet 'Data'.")
+        return
+
+    # Vérifier si l'utilisateur a choisi le type de problème
+    if st.session_state.user_choice is None:
+        st.warning("Veuillez d'abord choisir le type de problème dans l'onglet 'Data'.")
+        return
+    
+    # Vérifier si l'utilisateur a déjà divisé les données
+    if st.session_state.split_data is None:
+        st.warning("Veuillez d'abord diviser les données dans l'onglet 'Split'.")
+        return
+
+    algorithms_classification = ["Regression logistique", "Arbre de décision CART", "Naif bayes", "SVM", "KNN", "Random forest"]
+    algorithms_regression = ["Regression linéaire", "Arbre de décision CART", "SVM", "KNN", "Random forest"]
+    algorithms_clustering = ["K-means"]
+
+    if st.session_state.user_choice == "Classification Supervisé":
+        selected_algorithm = st.selectbox("Choisissez l'algorithme :", algorithms_classification)
+    elif st.session_state.user_choice == "Regression Supervisé":
+        selected_algorithm = st.selectbox("Choisissez l'algorithme :", algorithms_regression)
+    elif st.session_state.user_choice == "Classification Non Supervisé":
+        selected_algorithm = st.selectbox("Choisissez l'algorithme :", algorithms_clustering)
+    else:
+        st.warning("Type de problème non pris en charge.")
+        return
+    
+    # Ajouter un bouton "Confirmer"
+    if st.button("Confirmer"):
+        st.session_state.algorithm_choice = selected_algorithm
+        st.success(f"Algorithme sélectionné : {selected_algorithm}")
+
+
+def choisir_hyperparametres():
+    # Vérifier si l'algorithme a été choisi
+    if st.session_state.algorithm_choice is not None:
+        st.subheader("Choix des Hyperparamètres:")
+        algorithm_choice = st.session_state.algorithm_choice
+
+        hyperparameters = {}
+
+        if algorithm_choice in ["Regression logistique"]:
+            C = st.number_input("Paramètre C :", min_value=0.1, max_value=10.0, step=0.1, value=1.0)
+            hyperparameters["C"] = C
+            penalty = st.radio("Choix de la pénalité :", ["l1", "l2"])
+            hyperparameters["penalty"] = penalty
+
+        elif algorithm_choice in ["Arbre de décision CART"]:
+            max_depth = st.number_input("Profondeur maximale de l'arbre :", min_value=1, max_value=20, step=1, value=3)
+            hyperparameters["max_depth"] = max_depth
+            criterion = st.radio("Critère de division :", ["gini", "entropy"])
+            hyperparameters["criterion"] = criterion
+
+        elif algorithm_choice == "Naif bayes":
+            # Naive Bayes n'a généralement pas d'hyperparamètres spécifiques à ajuster
+            pass
+
+        elif algorithm_choice == "SVM":
+            kernel = st.radio("Type de noyau :", ["linear", "poly", "rbf", "sigmoid"])
+            hyperparameters["kernel"] = kernel
+            C_svm = st.number_input("Paramètre C pour SVM :", min_value=0.1, max_value=10.0, step=0.1, value=1.0)
+            hyperparameters["C_svm"] = C_svm
+
+        elif algorithm_choice == "KNN":
+            n_neighbors = st.number_input("Nombre de voisins :", min_value=1, max_value=20, step=1, value=5)
+            hyperparameters["n_neighbors"] = n_neighbors
+            algorithm_knn = st.radio("Algorithme KNN :", ["auto", "ball_tree", "kd_tree", "brute"])
+            hyperparameters["algorithm_knn"] = algorithm_knn
+
+        elif algorithm_choice == "Random forest":
+            n_estimators = st.number_input("Nombre d'estimateurs :", min_value=1, max_value=100, step=1, value=10)
+            hyperparameters["n_estimators"] = n_estimators
+            max_depth_rf = st.number_input("Profondeur maximale de l'arbre :", min_value=1, max_value=20, step=1, value=3)
+            hyperparameters["max_depth_rf"] = max_depth_rf
+
+        elif algorithm_choice == "Regression linéaire":
+            learning_rate = st.number_input("Taux d'apprentissage (Learning Rate) :", min_value=0.001, max_value=0.1, step=0.001, value=0.01)
+            hyperparameters["learning_rate"] = learning_rate
+
+        # Afficher le bouton pour confirmer les hyperparamètres
+        if st.button("Confirmer les Hyperparamètres"):
+            st.session_state.model_hyperparameters = hyperparameters
+            st.success("Hyperparamètres confirmés avec succès.")
+    else:
+        pass
+
 
 
 # Fonction pour afficher les onglets
 def display_tabs():
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(["Data", "Visualise", "Clean", "Split", "Resampling Data"])
+    tab1, tab2, tab3, tab4, tab5, tab6= st.tabs(["Data", "Visualise", "Clean", "Split", "Resampling Data", "Choix de l'algorithme"])
 
     # onglet importation des données
     with tab1:
@@ -559,6 +787,9 @@ def display_tabs():
 
                 # Exécution de la fonction remplacer_valeurs() seulement si des données existent
                 remplacer_valeurs()
+
+                # Exécution de la fonction convert_object_columns_to_float() seulement si des données existent
+                convert_object_columns_to_float()
 
                 # Exécution de la fonction encodage() seulement si des données existent
                 encodage()
@@ -607,9 +838,29 @@ def display_tabs():
     with tab5:
         st.header("Resampling Data")
 
-        apply_pca()
+        # Création de deux colonnes
+        left_column, right_column = st.columns(2)
 
-        smote_function()
+        # Dans la colonne de gauche
+        with left_column:
+            apply_pca()
+
+            smote_function()
+            
+
+        # Dans la colonne de droite
+        with right_column:
+            plot_elbow_method()
+
+        
+
+
+    with tab6: 
+        st.header("Choix de l'algorithme")
+
+        choix_algorithme()
+
+        choisir_hyperparametres()
 
 
 
