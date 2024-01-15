@@ -1,5 +1,3 @@
-from sklearn.metrics import r2_score
-from sklearn.metrics import auc, classification_report, confusion_matrix, mean_absolute_error, mean_squared_error, precision_recall_curve, roc_curve, silhouette_score
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -16,6 +14,10 @@ from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
 from sklearn.svm import SVC, SVR
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
+from itertools import cycle
+from sklearn.metrics import r2_score
+from sklearn.metrics import auc, classification_report, confusion_matrix, mean_absolute_error, mean_squared_error, precision_recall_curve, roc_curve, silhouette_score
+from sklearn.preprocessing import label_binarize
 
 # Définir la largeur de la page
 st.set_page_config(layout="wide")
@@ -66,13 +68,31 @@ def landing_page():
 
     
 
-# Fonction pour importer fichier csv
 def import_csv(): 
     uploaded_file = st.file_uploader("Importer un fichier CSV", type=["csv"])
     if uploaded_file is not None:
         st.success("Vos données ont été importées avec succès.")
         st.session_state.data = pd.read_csv(uploaded_file)  # Variable pour stocker les données importées
         return st.session_state.data
+
+def create_data():
+    st.subheader("Créer vos propres données:")
+    data_input = st.text_area("Entrez vos données séparées par des virgules (ex: 1,2,3,4)")
+    
+    if st.button("Créer"):
+        if data_input:
+            lines = data_input.strip().split('\n')
+            data_list = [line.split(',') for line in lines]
+
+            try:
+                # Convert to float, skip header
+                user_data = [list(map(float, line)) for line in data_list[1:]]
+                st.session_state.data = pd.DataFrame(user_data, columns=data_list[0])  
+                st.success("Vos données ont été créées avec succès.")
+            except ValueError as e:
+                st.warning(f"Erreur de conversion : {e}. Assurez-vous que toutes les valeurs sont numériques.")
+        else:
+            st.warning("Veuillez entrer des données valides.")
 
 # Fonction pour vérifier si des données existent dans st.session_state.data
 def check_data_exists():
@@ -730,6 +750,9 @@ def choisir_hyperparametres():
             penalty = st.radio("Choix de la pénalité :", ["l2", "none"])
             hyperparameters["penalty"] = penalty
 
+        elif algorithm_choice == "Regression linéaire":
+            st.warning("Pas d'hyperparamètres pour la Regression linéaire.")
+
         elif algorithm_choice in ["Arbre de décision CART"]:
             max_depth = st.number_input("Profondeur maximale de l'arbre :", min_value=1, max_value=20, step=1, value=3)
             hyperparameters["max_depth"] = max_depth
@@ -762,10 +785,6 @@ def choisir_hyperparametres():
             hyperparameters["n_estimators"] = n_estimators
             max_depth_rf = st.number_input("Profondeur maximale de l'arbre :", min_value=1, max_value=20, step=1, value=3)
             hyperparameters["max_depth_rf"] = max_depth_rf
-
-        elif algorithm_choice == "Regression linéaire":
-            # Regression linéaire n'a généralement pas d'hyperparamètres spécifiques à ajuster
-            pass
 
         elif algorithm_choice == "K-means":
             n_clusters = st.number_input("Nombre de clusters :", min_value=2, max_value=20, step=1, value=8)
@@ -852,8 +871,10 @@ def execute_logistic_regression(hyperparameters, model_data):
     try:
         model.fit(X_train, y_train)
         st.success("Régression logistique exécutée avec succès.")
+        return model  # Return the trained model
     except Exception as e:
         st.error(f"Erreur lors de l'entraînement de la régression logistique : {str(e)}")
+        return None  # Return None or handle the error appropriately
 
 def execute_decision_tree_classifier(hyperparameters, model_data):
     max_depth = hyperparameters.get("max_depth", 3)  # Default to 3 if not specified
@@ -866,8 +887,10 @@ def execute_decision_tree_classifier(hyperparameters, model_data):
 
         model.fit(X_train, y_train)
         st.success("Decision Tree (Classifier) executed successfully.")
+        return model  # Return the trained model
     except Exception as e:
         st.error(f"Error during Decision Tree (Classifier) training: {str(e)}")
+        return None  # Return None or handle the error appropriately
 
 def execute_decision_tree_regressor(hyperparameters, model_data):
     max_depth = hyperparameters.get("max_depth", 3)  # Default to 3 if not specified
@@ -880,8 +903,10 @@ def execute_decision_tree_regressor(hyperparameters, model_data):
 
         model.fit(X_train, y_train)
         st.success("Decision Tree (Regressor) executed successfully.")
+        return model  # Return the trained model
     except Exception as e:
         st.error(f"Error during Decision Tree (Regressor) training: {str(e)}")
+        return None  # Return None or handle the error appropriately
         
 def execute_linear_regression(model_data):
     model = LinearRegression()
@@ -891,8 +916,10 @@ def execute_linear_regression(model_data):
     try:
         model.fit(X_train, y_train)
         st.success("Régression linéaire exécutée avec succès.")
+        return model  # Return the trained model
     except Exception as e:
         st.error(f"Erreur lors de l'entraînement de la régression linéaire : {str(e)}")
+        return None  # Return None or handle the error appropriately
 
 def execute_naive_bayes(hyperparameters, model_data):
     nb_type = hyperparameters.get("nb_type", "Gaussian")  # Default to Gaussian if not specified
@@ -912,8 +939,10 @@ def execute_naive_bayes(hyperparameters, model_data):
 
         model.fit(X_train, y_train)
         st.success("Naive Bayes executed successfully.")
+        return model  # Return the trained model
     except Exception as e:
         st.error(f"Error during Naive Bayes training: {str(e)}")
+        return None  # Return None or handle the error appropriately
 
 def execute_svm_classifier(hyperparameters, model_data):
     kernel = hyperparameters.get("kernel", "rbf")  # Default to "rbf" if not specified
@@ -926,8 +955,10 @@ def execute_svm_classifier(hyperparameters, model_data):
 
         model.fit(X_train, y_train)
         st.success("SVM (Classifier) executed successfully.")
+        return model  # Return the trained model
     except Exception as e:
         st.error(f"Error during SVM (Classifier) training: {str(e)}")
+        return None  # Return None or handle the error appropriately
 
 def execute_svm_regressor(hyperparameters, model_data):
     kernel = hyperparameters.get("kernel", "rbf")  # Default to "rbf" if not specified
@@ -940,8 +971,10 @@ def execute_svm_regressor(hyperparameters, model_data):
 
         model.fit(X_train, y_train)
         st.success("SVM (Regressor) executed successfully.")
+        return model  # Return the trained model
     except Exception as e:
         st.error(f"Error during SVM (Regressor) training: {str(e)}")
+        return None  # Return None or handle the error appropriately
         
 def execute_knn_classifier(hyperparameters, model_data):
     n_neighbors = hyperparameters.get("n_neighbors", 5)  # Default to 5 if not specified
@@ -954,8 +987,10 @@ def execute_knn_classifier(hyperparameters, model_data):
 
         model.fit(X_train, y_train)
         st.success("K-Nearest Neighbors (Classifier) executed successfully.")
+        return model  # Return the trained model
     except Exception as e:
         st.error(f"Error during K-Nearest Neighbors (Classifier) training: {str(e)}")
+        return None  # Return None or handle the error appropriately
 
 def execute_knn_regressor(hyperparameters, model_data):
     n_neighbors = hyperparameters.get("n_neighbors", 5)  # Default to 5 if not specified
@@ -968,8 +1003,10 @@ def execute_knn_regressor(hyperparameters, model_data):
 
         model.fit(X_train, y_train)
         st.success("K-Nearest Neighbors (Regressor) executed successfully.")
+        return model  # Return the trained model
     except Exception as e:
         st.error(f"Error during K-Nearest Neighbors (Regressor) training: {str(e)}")
+        return None  # Return None or handle the error appropriately
 
 def execute_random_forest_classifier(hyperparameters, model_data):
     n_estimators = hyperparameters.get("n_estimators", 10)  # Default to 10 if not specified
@@ -982,8 +1019,10 @@ def execute_random_forest_classifier(hyperparameters, model_data):
 
         model.fit(X_train, y_train)
         st.success("Random Forest (Classifier) executed successfully.")
+        return model  # Return the trained model
     except Exception as e:
         st.error(f"Error during Random Forest (Classifier) training: {str(e)}")
+        return None  # Return None or handle the error appropriately
 
 def execute_random_forest_regressor(hyperparameters, model_data):
     n_estimators = hyperparameters.get("n_estimators", 10)  # Default to 10 if not specified
@@ -996,8 +1035,10 @@ def execute_random_forest_regressor(hyperparameters, model_data):
 
         model.fit(X_train, y_train)
         st.success("Random Forest (Regressor) executed successfully.")
+        return model  # Return the trained model
     except Exception as e:
         st.error(f"Error during Random Forest (Regressor) training: {str(e)}")
+        return None  # Return None or handle the error appropriately
         
 def execute_kmeans(hyperparameters, model_data):
     n_clusters = hyperparameters.get("n_clusters", 8)  # Default to 8 clusters if not specified
@@ -1009,77 +1050,149 @@ def execute_kmeans(hyperparameters, model_data):
 
         model.fit(X_train)
         st.success("K-means executed successfully.")
+        return model  # Return the trained model
     except Exception as e:
         st.error(f"Error during K-means clustering: {str(e)}")
+        return None  # Return None or handle the error appropriately
         
 
-def evaluate_model(model, X_test, y_test, problem_type):
-    if problem_type == "Classification Supervisé":
-        y_pred = model.predict(X_test)
-        display_classification_metrics(y_test, y_pred)
-    elif problem_type == "Regression Supervisé":
-        y_pred = model.predict(X_test)
-        display_regression_metrics(y_test, y_pred)
-    elif problem_type == "Classification Non Supervisé":
-        display_clustering_metrics(model, X_test)
+def evaluate_model():
+    if st.session_state.model is not None:
+        model = st.session_state.model
+        X_test = st.session_state.split_data["X_test"]
+        y_test = st.session_state.split_data["y_test"]
+        problem_type = st.session_state.user_choice
+
+        st.subheader("Récapitulatif du Modèle:")
+        st.write(f"Type de problème: {problem_type}")
+        st.write(f"Algorithme: {st.session_state.algorithm_choice}")
+        st.write(f"Hyperparamètres: {st.session_state.model_hyperparameters}")
+
+        # Afficher le bouton pour Evaluer le modèle
+        if st.button("Evaluer le modèle"):
+            st.subheader("Évaluation du Modèle:")
+            if problem_type == "Classification Supervisé":
+                y_pred = model.predict(X_test)
+                display_classification_metrics(y_test, y_pred)
+            elif problem_type == "Regression Supervisé":
+                y_pred = model.predict(X_test)
+                display_regression_metrics(y_test, y_pred)
+            elif problem_type == "Classification Non Supervisé":
+                display_clustering_metrics(model, X_test)
+            else:
+                st.warning("Type de problème non pris en charge.")
+            
     else:
-        st.warning("Type de problème non pris en charge.")
+        st.warning("Veuillez d'abord entraîner le modèle dans l'onglet approprié.")
+
 
 def display_classification_metrics(y_true, y_pred):
-    st.subheader("Matrice de Confusion:")
-    cm = confusion_matrix(y_true, y_pred)
-    st.table(cm)
+    # Création de deux colonnes
+    left_column, right_column = st.columns(2)
 
-    st.subheader("Rapport de Classification:")
-    report = classification_report(y_true, y_pred)
-    st.text(report)
+    with left_column:
+        st.subheader("Rapport de Classification:")
+        report = classification_report(y_true, y_pred)
+        st.text(report)
 
-    st.subheader("Courbe ROC:")
-    fpr, tpr, thresholds = roc_curve(y_true, y_pred)
-    roc_auc = auc(fpr, tpr)
 
-    fig_roc = plt.figure()
-    plt.plot(fpr, tpr, color='darkorange', lw=2, label='ROC curve (area = %0.2f)' % roc_auc)
-    plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
-    plt.xlabel('False Positive Rate')
-    plt.ylabel('True Positive Rate')
-    plt.title('Receiver Operating Characteristic (ROC) Curve')
-    plt.legend(loc="lower right")
-    st.pyplot(fig_roc)
 
-    st.subheader("Courbe Précision-Recall:")
-    precision, recall, _ = precision_recall_curve(y_true, y_pred)
+        st.subheader("Matrice de Confusion:")
+        cm = confusion_matrix(y_true, y_pred)
 
-    fig_pr_curve = plt.figure()
-    plt.plot(recall, precision, color='darkorange', lw=2)
-    plt.xlabel('Recall')
-    plt.ylabel('Precision')
-    plt.title('Precision-Recall Curve')
-    st.pyplot(fig_pr_curve)
+        # Créer une heatmap avec seaborn
+        plt.figure(figsize=(8, 6))
+        sns.heatmap(cm, annot=True, fmt="d", cmap="Blues")
+        plt.xlabel('Valeurs prédites')
+        plt.ylabel('Valeurs réelles')
+        plt.title('Matrice de Confusion')
+
+        # Afficher l'image dans Streamlit
+        st.pyplot(plt.gcf())  # Pass the current figure to st.pyplot
+
+    
+    with right_column:
+        # Plot ROC curve for each class
+        st.subheader("Courbe ROC (One-vs-One):")
+        # Compute ROC curve and ROC area for each class
+        n_classes = len(np.unique(y_true))
+        fpr = dict()
+        tpr = dict()
+        roc_auc = dict()
+
+        for i in range(n_classes):
+            y_true_i = np.where(y_true == i, 1, 0)
+            y_pred_i = np.where(y_pred == i, 1, 0)
+
+            fpr[i], tpr[i], _ = roc_curve(y_true_i, y_pred_i)
+            roc_auc[i] = auc(fpr[i], tpr[i])
+
+        fig_roc = plt.figure()
+        colors = cycle(['aqua', 'darkorange', 'cornflowerblue'])
+        for i, color in zip(range(n_classes), colors):
+            plt.plot(fpr[i], tpr[i], color=color, lw=2, label=f'ROC curve (area = {roc_auc[i]:.2f})')
+
+        plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+        plt.xlabel('False Positive Rate')
+        plt.ylabel('True Positive Rate')
+        plt.title('Receiver Operating Characteristic (ROC) Curve (One-vs-One)')
+        plt.legend(loc="lower right")
+        st.pyplot(fig_roc)
+
+        st.subheader("Courbe Précision-Recall (One-vs-All):")
+        # Compute Precision-Recall curve and area for each class
+        precision = dict()
+        recall = dict()
+        pr_auc = dict()
+
+        # Plot combined Precision-Recall curve for all classes
+        fig_pr_curve_combined = plt.figure()
+
+        for i in range(n_classes):
+            y_true_i = np.where(y_true == i, 1, 0)
+            y_pred_i = np.where(y_pred == i, 1, 0)
+
+            precision[i], recall[i], _ = precision_recall_curve(y_true_i, y_pred_i)
+            pr_auc[i] = auc(recall[i], precision[i])
+
+            # Plot Precision-Recall curve for each class
+            plt.plot(recall[i], precision[i], lw=2, label=f'Class {i} (AUC = {pr_auc[i]:.2f})')
+
+        plt.xlabel('Recall')
+        plt.ylabel('Precision')
+        plt.title('Precision-Recall Curve (One-vs-All)')
+        plt.legend(loc="upper right")
+        st.pyplot(fig_pr_curve_combined)
+
 
 def display_regression_metrics(y_true, y_pred):
-    st.subheader("Mean Absolute Error (MAE):")
-    mae = mean_absolute_error(y_true, y_pred)
-    st.write(f"MAE: {mae}")
+    # Création de deux colonnes
+    left_column, right_column = st.columns(2)
 
-    st.subheader("Mean Squared Error (MSE):")
-    mse = mean_squared_error(y_true, y_pred)
-    st.write(f"MSE: {mse}")
+    with left_column:
+        st.subheader("Mean Absolute Error (MAE):")
+        mae = mean_absolute_error(y_true, y_pred)
+        st.write(f"MAE: {mae}")
 
-    st.subheader("R-squared (R2):")
-    r2 = r2_score(y_true, y_pred)
-    st.write(f"R2: {r2}")
+        st.subheader("Mean Squared Error (MSE):")
+        mse = mean_squared_error(y_true, y_pred)
+        st.write(f"MSE: {mse}")
 
-    st.subheader("Residuals Plot:")
-    residuals = y_true - y_pred
+        st.subheader("R-squared (R2):")
+        r2 = r2_score(y_true, y_pred)
+        st.write(f"R2: {r2}")
 
-    fig_res = plt.figure()
-    plt.scatter(y_pred, residuals)
-    plt.axhline(0, color='red', linestyle='--', linewidth=2)
-    plt.xlabel('Predicted Values')
-    plt.ylabel('Residuals')
-    plt.title('Residuals Plot')
-    st.pyplot(fig_res)
+    with right_column:
+        st.subheader("Residuals Plot:")
+        residuals = y_true - y_pred
+
+        fig_res = plt.figure()
+        plt.scatter(y_pred, residuals)
+        plt.axhline(0, color='red', linestyle='--', linewidth=2)
+        plt.xlabel('Predicted Values')
+        plt.ylabel('Residuals')
+        plt.title('Residuals Plot')
+        st.pyplot(fig_res)
 
 def display_clustering_metrics(model, X_test):
     st.subheader("Silhouette Score:")
@@ -1111,8 +1224,16 @@ def display_tabs():
     # onglet importation des données
     with tab1:
         st.header("Importation des Données")
+        import_option = st.radio("Choisissez une option:", ("Importer un fichier CSV", "Créer vos propres données"))
 
-        st.session_state.data = import_csv()  # Assign the imported data to st.session_state.data
+        if import_option == "Importer un fichier CSV":
+            import_csv()
+        else:
+            create_data()
+
+        if check_data_exists():
+            # Continue with your code that uses the data
+            st.write("Les données sont prêtes à être utilisées!")
 
         choix_du_probleme()
 
@@ -1242,21 +1363,8 @@ def display_tabs():
 
     with tab7:
         st.header("Evaluation du modèle")
-        if st.session_state.model is not None:
-            model = st.session_state.model
-            X_test = st.session_state.split_data["X_test"]
-            y_test = st.session_state.split_data["y_test"]
-            problem_type = st.session_state.user_choice
 
-            st.subheader("Récapitulatif du Modèle:")
-            st.write(f"Type de problème: {problem_type}")
-            st.write(f"Algorithme: {st.session_state.algorithm_choice}")
-            st.write(f"Hyperparamètres: {st.session_state.model_hyperparameters}")
-
-            st.subheader("Évaluation du Modèle:")
-            evaluate_model(model, X_test, y_test, problem_type)
-        else:
-            st.warning("Veuillez d'abord entraîner le modèle dans l'onglet approprié.")
+        evaluate_model()
 
 
     with tab8:
