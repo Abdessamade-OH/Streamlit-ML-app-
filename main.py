@@ -454,7 +454,7 @@ def split_data():
 
         target_variable = st.selectbox("Sélectionnez la variable cible :", data_to_split.columns)
         random_state = st.number_input("Sélectionnez la valeur pour 'random_state' :", min_value=0, step=1, value=42)
-        test_size_percentage = st.slider("Sélectionnez la proportion d'entraînement :", min_value=10, max_value=90, step=1, value=80)
+        test_size_percentage = st.slider("Sélectionnez la proportion de test :", min_value=10, max_value=90, step=1, value=20)
 
         if st.button("Diviser les données"):
             
@@ -490,7 +490,7 @@ def split_data():
     elif st.session_state.user_choice == "Classification Non Supervisé":
 
         random_state = st.number_input("Sélectionnez la valeur pour 'random_state' :", min_value=0, step=1, value=42)
-        test_size_percentage = st.slider("Sélectionnez la proportion d'entraînement :", min_value=10, max_value=90, step=1, value=80)
+        test_size_percentage = st.slider("Sélectionnez la proportion de test :", min_value=10, max_value=90, step=1, value=20)
 
         if st.button("Diviser les données"):
             
