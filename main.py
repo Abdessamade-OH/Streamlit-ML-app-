@@ -1310,6 +1310,10 @@ def display_tabs():
     with tab3:
         st.header("Nettoyage des Données")
 
+        
+        if st.button("Réinitialiser les données 1"):
+            st.session_state.modified_data = st.session_state.data
+
         # Appel de la fonction d'importation des données avant d'exécuter les autres fonctions
         if not check_data_exists():
             st.warning("Veuillez importer un fichier CSV dans l'onglet 'Data' avant de nettoyer.")
