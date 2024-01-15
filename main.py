@@ -1,3 +1,5 @@
+from sklearn.metrics import r2_score
+from sklearn.metrics import auc, classification_report, confusion_matrix, mean_absolute_error, mean_squared_error, precision_recall_curve, roc_curve, silhouette_score
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -532,17 +534,17 @@ def smote_function():
 def apply_pca():
     # Vérifier si des données sont disponibles
     if st.session_state.data is None:
-        st.warning("Veuillez d'abord importer des données dans l'onglet 'Data'.")
+        st.warning("Veuillez d'abord importer des données dans l'onglet 'Importation des Données'.")
         return
 
     # Vérifier si l'utilisateur a choisi le type de problème
     if st.session_state.user_choice is None:
-        st.warning("Veuillez d'abord choisir le type de problème dans l'onglet 'Data'.")
+        st.warning("Veuillez d'abord choisir le type de problème dans l'onglet 'Importation des Données'.")
         return
     
     # Vérifier si l'utilisateur a déjà divisé les données
     if st.session_state.split_data is None:
-        st.warning("Veuillez d'abord diviser les données dans l'onglet 'Split'.")
+        st.warning("Veuillez d'abord diviser les données dans l'onglet 'Préparation des Données'.")
         return
     else:
         data_for_pca = st.session_state.split_data
@@ -674,17 +676,17 @@ def plot_elbow_method():
 def choix_algorithme():
     # Vérifier si des données sont disponibles
     if st.session_state.data is None:
-        st.warning("Veuillez d'abord importer des données dans l'onglet 'Data'.")
+        st.warning("Veuillez d'abord importer des données dans l'onglet 'Importation des Données'.")
         return
 
     # Vérifier si l'utilisateur a choisi le type de problème
     if st.session_state.user_choice is None:
-        st.warning("Veuillez d'abord choisir le type de problème dans l'onglet 'Data'.")
+        st.warning("Veuillez d'abord choisir le type de problème dans l'onglet 'Importation des Données'.")
         return
     
     # Vérifier si l'utilisateur a déjà divisé les données
     if st.session_state.split_data is None:
-        st.warning("Veuillez d'abord diviser les données dans l'onglet 'Split'.")
+        st.warning("Veuillez d'abord diviser les données dans l'onglet 'Préparation des Données'.")
         return
 
     algorithms_classification = ["Regression logistique", "Arbre de décision CART", "Naif bayes", "SVM", "KNN", "Random forest"]
@@ -1004,7 +1006,97 @@ def execute_kmeans(hyperparameters, model_data):
         st.error(f"Error during K-means clustering: {str(e)}")
         
 
+def evaluate_model(model, X_test, y_test, problem_type):
+    if problem_type == "Classification Supervisé":
+        y_pred = model.predict(X_test)
+        display_classification_metrics(y_test, y_pred)
+    elif problem_type == "Regression Supervisé":
+        y_pred = model.predict(X_test)
+        display_regression_metrics(y_test, y_pred)
+    elif problem_type == "Classification Non Supervisé":
+        display_clustering_metrics(model, X_test)
+    else:
+        st.warning("Type de problème non pris en charge.")
 
+def display_classification_metrics(y_true, y_pred):
+    st.subheader("Matrice de Confusion:")
+    cm = confusion_matrix(y_true, y_pred)
+    st.table(cm)
+
+    st.subheader("Rapport de Classification:")
+    report = classification_report(y_true, y_pred)
+    st.text(report)
+
+    st.subheader("Courbe ROC:")
+    fpr, tpr, thresholds = roc_curve(y_true, y_pred)
+    roc_auc = auc(fpr, tpr)
+
+    fig_roc = plt.figure()
+    plt.plot(fpr, tpr, color='darkorange', lw=2, label='ROC curve (area = %0.2f)' % roc_auc)
+    plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    plt.title('Receiver Operating Characteristic (ROC) Curve')
+    plt.legend(loc="lower right")
+    st.pyplot(fig_roc)
+
+    st.subheader("Courbe Précision-Recall:")
+    precision, recall, _ = precision_recall_curve(y_true, y_pred)
+
+    fig_pr_curve = plt.figure()
+    plt.plot(recall, precision, color='darkorange', lw=2)
+    plt.xlabel('Recall')
+    plt.ylabel('Precision')
+    plt.title('Precision-Recall Curve')
+    st.pyplot(fig_pr_curve)
+
+def display_regression_metrics(y_true, y_pred):
+    st.subheader("Mean Absolute Error (MAE):")
+    mae = mean_absolute_error(y_true, y_pred)
+    st.write(f"MAE: {mae}")
+
+    st.subheader("Mean Squared Error (MSE):")
+    mse = mean_squared_error(y_true, y_pred)
+    st.write(f"MSE: {mse}")
+
+    st.subheader("R-squared (R2):")
+    r2 = r2_score(y_true, y_pred)
+    st.write(f"R2: {r2}")
+
+    st.subheader("Residuals Plot:")
+    residuals = y_true - y_pred
+
+    fig_res = plt.figure()
+    plt.scatter(y_pred, residuals)
+    plt.axhline(0, color='red', linestyle='--', linewidth=2)
+    plt.xlabel('Predicted Values')
+    plt.ylabel('Residuals')
+    plt.title('Residuals Plot')
+    st.pyplot(fig_res)
+
+def display_clustering_metrics(model, X_test):
+    st.subheader("Silhouette Score:")
+    silhouette_avg = silhouette_score(X_test, model.labels_)
+    st.write(f"Silhouette Score: {silhouette_avg}")
+
+    st.subheader("Inertia:")
+    st.write(f"Inertia: {model.inertia_}")
+
+    st.subheader("Cluster Visualization:")
+    visualize_clusters(X_test, model.labels_)
+
+def visualize_clusters(X, labels):
+    # Implement your own cluster visualization method
+    # This could include a scatter plot, 3D plot, or any other suitable visualization
+    # For simplicity, here's a basic scatter plot with the first two features
+    fig_cluster = plt.figure()
+    sns.scatterplot(x=X[:, 0], y=X[:, 1], hue=labels, palette='viridis')
+    plt.xlabel('Feature 1')
+    plt.ylabel('Feature 2')
+    plt.title('Cluster Visualization')
+    st.pyplot(fig_cluster)
+
+    
 # Fonction pour afficher les onglets
 def display_tabs():
     tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8= st.tabs(["Importation des Données", "Visualisation", "Nettoyage des Données", "Préparation des Données", "Transformation des Données", "Entraînement du modèle", "Evaluation du modèle", "Exportation du modèle"])
@@ -1143,6 +1235,21 @@ def display_tabs():
 
     with tab7:
         st.header("Evaluation du modèle")
+        if st.session_state.model is not None:
+            model = st.session_state.model
+            X_test = st.session_state.split_data["X_test"]
+            y_test = st.session_state.split_data["y_test"]
+            problem_type = st.session_state.user_choice
+
+            st.subheader("Récapitulatif du Modèle:")
+            st.write(f"Type de problème: {problem_type}")
+            st.write(f"Algorithme: {st.session_state.algorithm_choice}")
+            st.write(f"Hyperparamètres: {st.session_state.model_hyperparameters}")
+
+            st.subheader("Évaluation du Modèle:")
+            evaluate_model(model, X_test, y_test, problem_type)
+        else:
+            st.warning("Veuillez d'abord entraîner le modèle dans l'onglet approprié.")
 
 
     with tab8:
