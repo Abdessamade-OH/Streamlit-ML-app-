@@ -1,8 +1,3 @@
-from sklearn.cluster import KMeans
-from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
-from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
-from sklearn.svm import SVC, SVR
-from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -14,6 +9,11 @@ from imblearn.over_sampling import SMOTE
 from sklearn.decomposition import PCA
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.naive_bayes import GaussianNB, MultinomialNB, BernoulliNB
+from sklearn.cluster import KMeans
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
+from sklearn.svm import SVC, SVR
+from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 
 # Définir la largeur de la page
 st.set_page_config(layout="wide")
@@ -30,6 +30,7 @@ def init_session():
         st.session_state.resampled_data = None # Initialiser la variable "resampled_data" à None
         st.session_state.algorithm_choice = None # Initialiser la variable "algorithm_choice" à None
         st.session_state.model_hyperparameters = None # Initialiser la variable "model_hyperparameters" à None
+        st.session_state.model = None # Initialiser la variable "model" à None
 
 # Fonction pour afficher la landing page
 def landing_page():
@@ -757,51 +758,56 @@ def choisir_hyperparametres():
 
 def execute_algorithm():
     if st.session_state.model_hyperparameters is not None:
+        
+        algorithm_choice = st.session_state.algorithm_choice
+        hyperparameters = st.session_state.model_hyperparameters
+
+        if st.session_state.split_data is not None :
+            model_data = st.session_state.split_data
+        elif st.session_state.resampled_data is not None:
+            model_data = st.session_state.resampled_data
+
+        # Exécuter l'algorithme en fonction du choix de l'utilisateur
+        if algorithm_choice == "Regression logistique":
+            model = execute_logistic_regression(hyperparameters, model_data)
+
+        elif algorithm_choice == "Arbre de décision CART":
+            if st.session_state.user_choice == "Classification Supervisé":
+                model = execute_decision_tree_classifier(hyperparameters, model_data)
+            elif st.session_state.user_choice == "Regression Supervisé":
+                model = execute_decision_tree_regressor(hyperparameters, model_data)
+
+        elif algorithm_choice == "Naif bayes":
+            model = execute_naive_bayes(hyperparameters, model_data)
+
+        elif algorithm_choice == "SVM":
+            if st.session_state.user_choice == "Classification Supervisé":
+                model = execute_svm_classifier(hyperparameters, model_data)
+            elif st.session_state.user_choice == "Regression Supervisé":
+                model = execute_svm_regressor(hyperparameters, model_data)
+
+        elif algorithm_choice == "KNN":
+            if st.session_state.user_choice == "Classification Supervisé":
+                model = execute_knn_classifier(hyperparameters, model_data)
+            elif st.session_state.user_choice == "Regression Supervisé":
+                model = execute_knn_regressor(hyperparameters, model_data)
+
+        elif algorithm_choice == "Random forest":
+            if st.session_state.user_choice == "Classification Supervisé":
+                model = execute_random_forest_classifier(hyperparameters, model_data)
+            elif st.session_state.user_choice == "Regression Supervisé":
+                model = execute_random_forest_regressor(hyperparameters, model_data)
+
+        elif algorithm_choice == "Regression linéaire":
+            model = execute_linear_regression(model_data)
+
+        elif algorithm_choice == "K-means":
+            model = execute_kmeans(hyperparameters, model_data)
+            
+
+        # Afficher le bouton pour Entraîner le modèle
         if st.button("Entraîner le modèle"):
-            algorithm_choice = st.session_state.algorithm_choice
-            hyperparameters = st.session_state.model_hyperparameters
-
-            if st.session_state.split_data is not None :
-                model_data = st.session_state.split_data
-            elif st.session_state.resampled_data is not None:
-                model_data = st.session_state.resampled_data
-
-            # Exécuter l'algorithme en fonction du choix de l'utilisateur
-            if algorithm_choice == "Regression logistique":
-                execute_logistic_regression(hyperparameters, model_data)
-
-            elif algorithm_choice == "Arbre de décision CART":
-                if st.session_state.user_choice == "Classification Supervisé":
-                    execute_decision_tree_classifier(hyperparameters, model_data)
-                elif st.session_state.user_choice == "Regression Supervisé":
-                    execute_decision_tree_regressor(hyperparameters, model_data)
-
-            elif algorithm_choice == "Naif bayes":
-                execute_naive_bayes(hyperparameters, model_data)
-
-            elif algorithm_choice == "SVM":
-                if st.session_state.user_choice == "Classification Supervisé":
-                    execute_svm_classifier(hyperparameters, model_data)
-                elif st.session_state.user_choice == "Regression Supervisé":
-                    execute_svm_regressor(hyperparameters, model_data)
-
-            elif algorithm_choice == "KNN":
-                if st.session_state.user_choice == "Classification Supervisé":
-                    execute_knn_classifier(hyperparameters, model_data)
-                elif st.session_state.user_choice == "Regression Supervisé":
-                    execute_knn_regressor(hyperparameters, model_data)
-
-            elif algorithm_choice == "Random forest":
-                if st.session_state.user_choice == "Classification Supervisé":
-                    execute_random_forest_classifier(hyperparameters, model_data)
-                elif st.session_state.user_choice == "Regression Supervisé":
-                    execute_random_forest_regressor(hyperparameters, model_data)
-
-            elif algorithm_choice == "Regression linéaire":
-                execute_linear_regression(model_data)
-
-            elif algorithm_choice == "K-means":
-                execute_kmeans(hyperparameters, model_data)
+            st.session_state.model = model
     else:
         pass
 
@@ -974,13 +980,15 @@ def execute_kmeans(hyperparameters, model_data):
     except Exception as e:
         st.error(f"Error during K-means clustering: {str(e)}")
         
+
+
 # Fonction pour afficher les onglets
 def display_tabs():
-    tab1, tab2, tab3, tab4, tab5, tab6= st.tabs(["Data", "Visualise", "Clean", "Split", "Resampling Data", "Choix de l'algorithme"])
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8= st.tabs(["Importation des Données", "Visualisation", "Nettoyage des Données", "Préparation des Données", "Transformation des Données", "Entraînement du modèle", "Evaluation du modèle", "Exportation du modèle"])
 
     # onglet importation des données
     with tab1:
-        st.header("Data")
+        st.header("Importation des Données")
 
         st.session_state.data = import_csv()  # Assign the imported data to st.session_state.data
 
@@ -991,14 +999,14 @@ def display_tabs():
 
     # Onglet visualisation des données
     with tab2:
-        st.header("Visualize")
+        st.header("Visualisation")
 
         visualize_data()
 
     
     # onglet netoyage des données  
     with tab3:
-        st.header("Clean")
+        st.header("Nettoyage des Données")
 
         # Appel de la fonction d'importation des données avant d'exécuter les autres fonctions
         if not check_data_exists():
@@ -1075,13 +1083,13 @@ def display_tabs():
 
     # onglet division des données  
     with tab4:
-        st.header("Split")
+        st.header("Préparation des Données")
 
         # Exécution de la fonction split_data()
         split_data()
 
     with tab5:
-        st.header("Resampling Data")
+        st.header("Transformation des Données")
 
         # Création de deux colonnes
         left_column, right_column = st.columns(2)
@@ -1108,6 +1116,15 @@ def display_tabs():
         choisir_hyperparametres()
 
         execute_algorithm()
+
+
+    with tab7:
+        st.header("Evaluation du modèle")
+
+
+    with tab8:
+        st.header("Exportation du modèle")
+
 
 
 
