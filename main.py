@@ -1272,7 +1272,7 @@ def create_dataframe():
     col_types = []
     
     for i in range(num_cols):
-        st.markdown(f"**Colonne {i+1}**")
+        st.markdown(f"*Colonne {i+1}*")
         col_name = st.text_input(f"Entrer le nom de la colonne {i+1}", value=f"col{i+1}")
         col_type = st.selectbox(f"Entrer le type de la colonne {i+1}", options=["int", "float", "bool", "str"], index=0)
         col_names.append(col_name)
@@ -1300,6 +1300,7 @@ def create_dataframe():
     # Return the edited dataframe
     return edited_df
 
+
 # Fonction pour afficher les onglets
 def display_tabs():
     tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8= st.tabs(["Importation des Données", "Visualisation", "Nettoyage des Données", "Préparation des Données", "Transformation des Données", "Entraînement du modèle", "Evaluation du modèle", "Exportation du modèle"])
@@ -1313,10 +1314,10 @@ def display_tabs():
             import_csv()
         else:
             result = create_dataframe()
-            if not result.empty:
+
+            if st.button("Enregistrer"):
                 st.session_state.data = result
-            else:
-                st.session_state.data = None
+
 
         if check_data_exists():
             # Continue with your code that uses the data
