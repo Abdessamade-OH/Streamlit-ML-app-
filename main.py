@@ -39,23 +39,30 @@ def landing_page():
 
     st.markdown(f'<style>{css}</style>', unsafe_allow_html=True)
 
-    st.markdown('<p class="font">Bienvenue sur OptiML!</p>', unsafe_allow_html=True)
-
-    # Création de deux colonnes
-    left_column, right_column = st.columns(2)
-
-    # Dans la colonne de gauche
-    with left_column:
-        st.subheader("Découvrez une plateforme intuitive d'exploration de données et d'apprentissage automatique qui donne vie à votre parcours data.")
-        st.subheader("Que vous soyez un passionné de données, un analyste ou un amateur d'apprentissage automatique, OptiML offre une interface conviviale pour importer, explorer et analyser vos ensembles de données en toute simplicité.")
-        
-
+    st.title("OptiML")
+    
+    st.subheader("Découvrez une plateforme intuitive d'exploration de données et d'apprentissage automatique qui donne vie à votre parcours data.")
+    st.subheader("Que vous soyez un passionné de données, un analyste ou un amateur d'apprentissage automatique, OptiML offre une interface conviviale pour importer, explorer et analyser vos ensembles de données en toute simplicité.")
    
-    st.write("Cliquez sur le bouton ci-dessous pour commencer.")
+    st.subheader("Cliquez sur le bouton ci-dessous pour commencer :")
 
-    st.text("")  # Crée une séparation visuelle sans bordure
     with st.form(key="landing_form", border=False):
         st.form_submit_button("Get Started", on_click=lambda: st.session_state.update({"page": 1}))
+
+    st.text("")  # Crée une séparation visuelle sans bordure
+    st.text("")  # Crée une séparation visuelle sans bordure
+
+    st.subheader("Guide des Onglets : Découvrez Chaque Étape de Votre Projet d'Apprentissage Automatique")
+    st.write("Importation des Données : Importez vos ensembles de données dans l'application pour démarrer votre projet.")
+    st.write("Visualisation : Explorez visuellement vos données avec des graphiques et des tableaux pour en comprendre la structure.")
+    st.write("Nettoyage des Données : Effectuez des opérations de nettoyage, telles que le traitement des valeurs manquantes ou la suppression des valeurs aberrantes.")
+    st.write("Préparation des Données : Divisez vos données en ensembles d'entraînement et de test pour préparer le modèle.")
+    st.write("Transformation des Données : Appliquez des transformations, notamment l'analyse en composantes principales (PCA) et la suréchantillonnage des données avec SMOTE, pour optimiser la préparation de votre modèle.")
+    st.write("Entraînement du Modèle : Choisissez et entraînez votre modèle d'apprentissage automatique avec les données préparées.")
+    st.write("Évaluation du Modèle : Évaluez les performances de votre modèle avec des métriques adaptées au problème.")
+    st.write("Exportation du Modèle : Exportez votre modèle entraîné pour une utilisation future.")
+
+    
 
 # Fonction pour importer fichier csv
 def import_csv(): 
