@@ -17,7 +17,10 @@ from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 from itertools import cycle
 from sklearn.metrics import r2_score
 from sklearn.metrics import auc, classification_report, confusion_matrix, mean_absolute_error, mean_squared_error, precision_recall_curve, roc_curve, silhouette_score
-from sklearn.preprocessing import label_binarize
+import joblib
+import os
+import tkinter as tk
+from tkinter import filedialog
 
 # Définir la largeur de la page
 st.set_page_config(layout="wide")
@@ -1194,29 +1197,84 @@ def display_regression_metrics(y_true, y_pred):
         plt.title('Residuals Plot')
         st.pyplot(fig_res)
 
+
 def display_clustering_metrics(model, X_test):
-    st.subheader("Silhouette Score:")
-    silhouette_avg = silhouette_score(X_test, model.labels_)
-    st.write(f"Silhouette Score: {silhouette_avg}")
+    # Création de deux colonnes
+    left_column, right_column = st.columns(2)
 
-    st.subheader("Inertia:")
-    st.write(f"Inertia: {model.inertia_}")
+    with left_column:
+        st.subheader("Silhouette Score:")
+        silhouette_avg = silhouette_score(X_test, model.predict(X_test))
+        st.write(f"Silhouette Score: {silhouette_avg}")
 
-    st.subheader("Cluster Visualization:")
-    visualize_clusters(X_test, model.labels_)
+        st.subheader("Inertia:")
+        st.write(f"Inertia: {model.inertia_}")
+    
+    with right_column:
+        st.subheader("Cluster Visualization:")
+        visualize_clusters(X_test, model)
 
-def visualize_clusters(X, labels):
+def visualize_clusters(X, model):
+    # Convert DataFrame to NumPy array
+    if isinstance(X, pd.DataFrame):
+        X_array = X.values
+    else:
+        X_array = X
+
+    # Print the shape and content of X_array and model.predict(X_array)
+    print("X_array shape:", X_array.shape)
+    print("model.predict(X_array) shape:", model.predict(X_array).shape)
+    print("model.predict(X_array):", model.predict(X_array))
+
     # Implement your own cluster visualization method
     # This could include a scatter plot, 3D plot, or any other suitable visualization
     # For simplicity, here's a basic scatter plot with the first two features
     fig_cluster = plt.figure()
-    sns.scatterplot(x=X[:, 0], y=X[:, 1], hue=labels, palette='viridis')
+    sns.scatterplot(x=X_array[:, 0], y=X_array[:, 1], hue=model.predict(X_array), palette='viridis')
     plt.xlabel('Feature 1')
     plt.ylabel('Feature 2')
     plt.title('Cluster Visualization')
     st.pyplot(fig_cluster)
 
-    
+
+
+def select_folder():
+   root = tk.Tk()
+   root.withdraw()
+   folder_path = filedialog.askdirectory(master=root)
+   root.destroy()
+   return folder_path
+
+
+
+def import_model():
+    if st.session_state.model is not None:
+        trained_model = st.session_state.model
+
+        # Get the model name from the user
+        model_name = st.text_input("Entrez le nom du modèle:")
+
+        selected_folder_path = st.session_state.get("folder_path", None)
+        folder_select_button = st.button("Select Folder")
+        if folder_select_button:
+            selected_folder_path = select_folder()
+            st.session_state.folder_path = selected_folder_path
+
+        if model_name and st.session_state.folder_path:
+            # Combine the model name with the chosen directory to get the full path
+            model_file_path = os.path.join(st.session_state.folder_path, f"{model_name}.joblib")
+
+            # Save the trained model to the specified file
+            joblib.dump(trained_model, model_file_path)
+
+            # Display success message
+            st.success(f"Modèle enregistré avec succès dans {model_file_path}")
+            
+    else:
+        st.warning("Veuillez d'abord entraîner le modèle dans l'onglet approprié.")
+
+
+
 # Fonction pour afficher les onglets
 def display_tabs():
     tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8= st.tabs(["Importation des Données", "Visualisation", "Nettoyage des Données", "Préparation des Données", "Transformation des Données", "Entraînement du modèle", "Evaluation du modèle", "Exportation du modèle"])
@@ -1370,6 +1428,7 @@ def display_tabs():
     with tab8:
         st.header("Exportation du modèle")
 
+        import_model()
 
 
 
