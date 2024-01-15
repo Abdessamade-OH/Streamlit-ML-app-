@@ -31,10 +31,15 @@ def init_session():
         st.session_state.modified_data = None  # Initialiser la variable pour le DataFrame modifié
         st.session_state.split_data = None  # Initialiser la variable "split_data" à None
         st.session_state.user_choice = None # Initialiser la variable "user_choice" à None
+
         st.session_state.resampled_data = None # Initialiser la variable "resampled_data" à None
         st.session_state.algorithm_choice = None # Initialiser la variable "algorithm_choice" à None
         st.session_state.model_hyperparameters = None # Initialiser la variable "model_hyperparameters" à None
         st.session_state.model = None # Initialiser la variable "model" à None
+
+        st.session_state.col_names = None
+        st.session_state.col_types = None
+
 
 # Fonction pour afficher la landing page
 def landing_page():
@@ -75,28 +80,11 @@ def import_csv():
         st.session_state.data = pd.read_csv(uploaded_file)  # Variable pour stocker les données importées
         return st.session_state.data
 
-def create_data():
-    st.subheader("Créer vos propres données:")
-    data_input = st.text_area("Entrez vos données séparées par des virgules (ex: 1,2,3,4)")
-    
-    if st.button("Créer"):
-        if data_input:
-            lines = data_input.strip().split('\n')
-            data_list = [line.split(',') for line in lines]
-
-            try:
-                # Convert to float, skip header
-                user_data = [list(map(float, line)) for line in data_list[1:]]
-                st.session_state.data = pd.DataFrame(user_data, columns=data_list[0])  
-                st.success("Vos données ont été créées avec succès.")
-            except ValueError as e:
-                st.warning(f"Erreur de conversion : {e}. Assurez-vous que toutes les valeurs sont numériques.")
-        else:
-            st.warning("Veuillez entrer des données valides.")
-
-# Fonction pour vérifier si des données existent dans st.session_state.data
 def check_data_exists():
-    return st.session_state.data is not None
+    if st.session_state.data is not None:
+        return True
+    else:
+        return False
 
 
 # Fonction pour choisir le type de problème
@@ -117,7 +105,66 @@ def choix_du_probleme():
         pass
 
 
+# Define a function to create a dynamic dataframe
+def create_dynamic_dataframe():
+    # Create an empty dataframe with two columns: column-name and column-type
+    df = pd.DataFrame([], columns=["column-name", "column-type"])
 
+    st.markdown("""
+            columns, metadata table.
+            """)
+    st.warning('Modyfing this will reset the data table')
+    # Display the dataframe in a data editor widget and let the user enter the column names and types
+    edited_df = st.data_editor(df, num_rows="dynamic")
+    
+
+    # Validate the column types using a predefined list of options
+    options = ["int", "float", "str", "bool"]
+    valid = True
+    for col_type in edited_df["column-type"]:
+        if col_type not in options:
+            valid = False
+            break
+
+    # If the column types are valid, create a new dataframe with the specified column names and types
+    if valid:
+        # Create a list of column names and types
+        col_names = edited_df["column-name"].tolist()
+        col_types = edited_df["column-type"].tolist()
+
+        return col_names, col_types
+        
+    # If the column types are not valid, display an error message and ask the user to correct them
+    else:
+        st.error("Invalid column type. Please enter one of the following options: int, float, str, bool.")
+        return None
+
+def create_dynamic_dataframe2(col_names, col_types): 
+    
+        # Create an empty dataframe with the specified column names
+        df = pd.DataFrame([], columns=col_names)
+
+        # Convert the column types according to the user input
+        for col_name, col_type in zip(col_names, col_types):
+            if col_type == "int":
+                df[col_name] = df[col_name].astype(int)
+            elif col_type == "float":
+                df[col_name] = df[col_name].astype(float)
+            elif col_type == "str":
+                df[col_name] = df[col_name].astype(str)
+            elif col_type == "bool":
+                df[col_name] = df[col_name].astype(bool)
+
+        st.markdown("""
+            You can download the data from the table above by clicking on the "Download" button.
+            """)
+        # Display the dataframe in a data editor widget and let the user add rows
+        edited_df = st.data_editor(df, num_rows="dynamic")
+
+        # Return the edited dataframe
+        return edited_df
+
+    
 
 # Fonction pour visualiser les données
 def visualize_data():
@@ -1224,16 +1271,30 @@ def display_tabs():
     # onglet importation des données
     with tab1:
         st.header("Importation des Données")
-        import_option = st.radio("Choisissez une option:", ("Importer un fichier CSV", "Créer vos propres données"))
 
-        if import_option == "Importer un fichier CSV":
+        # Radio button for choosing data source
+        data_option = st.radio("Choose data source:", ["Imported Data", "Created Data"])
+
+        if data_option == "Imported Data":
             import_csv()
         else:
-            create_data()
+            st.title("Downloadable Table")
 
-        if check_data_exists():
-            # Continue with your code that uses the data
-            st.write("Les données sont prêtes à être utilisées!")
+            # Call the function 
+            result = create_dynamic_dataframe()
+            if result is not None:
+                # Unpack the result into two variables
+                col_names, col_types = result
+                st.session_state['col_names'] = col_names
+                st.session_state['col_types'] = col_types
+                # st.write(st.session_state['col_names'], st.session_state['col_types'])
+                df = create_dynamic_dataframe2(st.session_state.col_names, st.session_state.col_types)
+                st.session_state.data = df
+            else:
+                # Handle the case when the result is None
+                st.warning("Please enter valid column types.")
+                
+            # st.write(st.session_state.df_table)    
 
         choix_du_probleme()
 
@@ -1279,6 +1340,7 @@ def display_tabs():
 
                 # Exécution de la fonction normaliser() seulement si des données existent
                 normaliser()
+
 
             # Dans la colonne de droite
             with right_column:
