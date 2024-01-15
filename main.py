@@ -38,6 +38,7 @@ def init_session():
         st.session_state.algorithm_choice = None # Initialiser la variable "algorithm_choice" à None
         st.session_state.model_hyperparameters = None # Initialiser la variable "model_hyperparameters" à None
         st.session_state.model = None # Initialiser la variable "model" à None
+        st.session_state.folder_path = None # Initialiser la variable "folder_path" à None
 
 # Fonction pour afficher la landing page
 def landing_page():
@@ -1254,9 +1255,9 @@ def import_model():
         # Get the model name from the user
         model_name = st.text_input("Entrez le nom du modèle:")
 
-        selected_folder_path = st.session_state.get("folder_path", None)
-        folder_select_button = st.button("Select Folder")
-        if folder_select_button:
+
+        if st.button("Select Folder"):
+            selected_folder_path = st.session_state.get("folder_path", None)
             selected_folder_path = select_folder()
             st.session_state.folder_path = selected_folder_path
 
