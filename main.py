@@ -81,30 +81,6 @@ def import_csv():
         st.session_state.data = pd.read_csv(uploaded_file)  # Variable pour stocker les données importées
         return st.session_state.data
 
-def create_data():
-    st.subheader("Créer vos propres données:")
-    data_input = st.text_area("Entrez vos données séparées par des virgules (ex: 1,2,3,4)")
-
-    if st.button("Créer"):
-        if data_input:
-            lines = data_input.strip().split('\n')
-            data_list = [line.split(',') for line in lines]
-
-            try:
-                # Convert to float, handle mixed data types
-                user_data = [list(map(lambda x: float(x) if x.replace(".", "", 1).isdigit() else x, line)) for line in data_list[1:]]
-                user_columns = data_list[0]
-
-                # Check for duplicate column names
-                if len(set(user_columns)) != len(user_columns):
-                    st.warning("Des noms de colonnes en double ont été trouvés. Veuillez utiliser des noms de colonnes uniques.")
-                else:
-                    st.session_state.data = pd.DataFrame(user_data, columns=user_columns)
-                    st.success("Vos données ont été créées avec succès.")
-            except ValueError as e:
-                st.warning(f"Erreur de conversion : {e}. Assurez-vous que toutes les valeurs sont numériques.")
-        else:
-            st.warning("Veuillez entrer des données valides.")
 
 # Fonction pour vérifier si des données existent dans st.session_state.data
 def check_data_exists():
@@ -1282,7 +1258,47 @@ def import_model():
     else:
         st.warning("Veuillez d'abord entraîner le modèle dans l'onglet approprié.")
 
+def create_dataframe():
+    st.subheader('Les colonnes (Metadata)')
+    if st.session_state.data is not None:
+        st.warning('Si vous modifier les colonnes, Tous les données vont être actualisés')
+    # Get the number of columns from the user
+    num_cols = st.number_input("Entrer le nombre des colonnes", min_value=1, max_value=10000, value=3)
+    st.markdown(' ')
+    st.markdown(' ')
+    
+    # Create a list of column names and types
+    col_names = []
+    col_types = []
+    
+    for i in range(num_cols):
+        st.markdown(f"**Colonne {i+1}**")
+        col_name = st.text_input(f"Entrer le nom de la colonne {i+1}", value=f"col{i+1}")
+        col_type = st.selectbox(f"Entrer le type de la colonne {i+1}", options=["int", "float", "bool", "str"], index=0)
+        col_names.append(col_name)
+        col_types.append(col_type)
+        if i != num_cols - 1:
+            st.write('---------------------------------------------------------------------------------')
+        
+    # Create an empty dataframe with the specified column names and types
+    df = pd.DataFrame(columns=col_names)
+    for col_name, col_type in zip(col_names, col_types):
+        if col_type == "int":
+            df[col_name] = df[col_name].astype(int)
+        elif col_type == "float":
+            df[col_name] = df[col_name].astype(float)
+        elif col_type == "bool":
+            df[col_name] = df[col_name].astype(bool)
+        elif col_type == "str":
+            df[col_name] = df[col_name].astype(str)
 
+    st.write(' \n ')
+    st.subheader('Les lignes (Data)')
+    # Use the data editor widget to edit the dataframe
+    edited_df = st.data_editor(df, num_rows='dynamic')
+
+    # Return the edited dataframe
+    return edited_df
 
 # Fonction pour afficher les onglets
 def display_tabs():
@@ -1296,13 +1312,18 @@ def display_tabs():
         if import_option == "Importer un fichier CSV":
             import_csv()
         else:
-            create_data()
+            result = create_dataframe()
+            if not result.empty:
+                st.session_state.data = result
+            else:
+                st.session_state.data = None
 
         if check_data_exists():
             # Continue with your code that uses the data
             st.write("Les données sont prêtes à être utilisées!")
 
         choix_du_probleme()
+        
 
         with st.form(key="Exit", border=False):
             st.form_submit_button("Exit", on_click=lambda: st.session_state.update({"page": 0}))  # Revenir à la landing page
@@ -1320,7 +1341,6 @@ def display_tabs():
 
         if st.button("Réinitialiser les données"):
             st.session_state.modified_data = st.session_state.data
-
 
         # Appel de la fonction d'importation des données avant d'exécuter les autres fonctions
         if not check_data_exists():
