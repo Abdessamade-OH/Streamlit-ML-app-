@@ -1257,8 +1257,11 @@ def import_model():
         st.warning("Veuillez d'abord entraîner le modèle dans l'onglet approprié.")
 
 def create_dataframe():
+    st.subheader('Les colonnes (Metadata)')
+    if st.session_state.data is not None:
+        st.warning('Si vous modifier les colonnes, Tous les données vont être actualisés')
     # Get the number of columns from the user
-    num_cols = st.number_input("Enter the number of columns", min_value=1, max_value=10000, value=3)
+    num_cols = st.number_input("Entrer le nombre des colonnes", min_value=1, max_value=10000, value=3)
 
     # Create a list of column names and types
     col_names = []
@@ -1281,6 +1284,7 @@ def create_dataframe():
         elif col_type == "str":
             df[col_name] = df[col_name].astype(str)
 
+    st.subheader('Les lignes (Data)')
     # Use the data editor widget to edit the dataframe
     edited_df = st.data_editor(df, num_rows='dynamic')
 
