@@ -20,6 +20,9 @@ def init_session():
         st.session_state.modified_data = None  # Initialiser la variable pour le DataFrame modifié
         st.session_state.split_data = None  # Initialiser la variable "split_data" à None
         st.session_state.user_choice = None # Initialiser la variable "user_choice" à None
+        st.session_state.col_names = None
+        st.session_state.col_types = None
+        st.session_state.df_table = None
 
 # Fonction pour afficher la landing page
 def landing_page():
@@ -73,8 +76,13 @@ def create_dynamic_dataframe():
     # Create an empty dataframe with two columns: column-name and column-type
     df = pd.DataFrame([], columns=["column-name", "column-type"])
 
+    st.markdown("""
+            columns, metadata table.
+            """)
+    
     # Display the dataframe in a data editor widget and let the user enter the column names and types
     edited_df = st.data_editor(df, num_rows="dynamic")
+    st.warning('Modyfing this will reset the data table')
 
     # Validate the column types using a predefined list of options
     options = ["int", "float", "str", "bool"]
@@ -90,6 +98,15 @@ def create_dynamic_dataframe():
         col_names = edited_df["column-name"].tolist()
         col_types = edited_df["column-type"].tolist()
 
+        return col_names, col_types
+        
+    # If the column types are not valid, display an error message and ask the user to correct them
+    else:
+        st.error("Invalid column type. Please enter one of the following options: int, float, str, bool.")
+        return None
+
+def create_dynamic_dataframe2(col_names, col_types): 
+    
         # Create an empty dataframe with the specified column names
         df = pd.DataFrame([], columns=col_names)
 
@@ -104,18 +121,16 @@ def create_dynamic_dataframe():
             elif col_type == "bool":
                 df[col_name] = df[col_name].astype(bool)
 
+        st.markdown("""
+            You can download the data from the table above by clicking on the "Download" button.
+            """)
         # Display the dataframe in a data editor widget and let the user add rows
         edited_df = st.data_editor(df, num_rows="dynamic")
 
         # Return the edited dataframe
         return edited_df
 
-    # If the column types are not valid, display an error message and ask the user to correct them
-    else:
-        st.error("Invalid column type. Please enter one of the following options: int, float, str, bool.")
-        return None
-
-
+    
 
 # Fonction pour visualiser les données
 def visualize_data():
@@ -526,18 +541,37 @@ def display_tabs():
 
     # onglet importation des données
     with tab1:
+
+        
         st.header("Data")
 
-        st.session_state.data = import_csv()  # Assign the imported data to st.session_state.data
+        # Radio button for choosing data source
+        data_option = st.radio("Choose data source:", ["Imported Data", "Created Data"])
+
+        if data_option == "Imported Data":
+            st.session_state.data = import_csv()  # Assign the imported data to st.session_state.data
+        else:
+            st.title("Downloadable Table")
+
+            # Call the function 
+            result = create_dynamic_dataframe()
+            if result is not None:
+                # Unpack the result into two variables
+                col_names, col_types = result
+                st.session_state['col_names'] = col_names
+                st.session_state['col_types'] = col_types
+                # st.write(st.session_state['col_names'], st.session_state['col_types'])
+                df = create_dynamic_dataframe2(st.session_state.col_names, st.session_state.col_types)
+                st.session_state.data = df
+            else:
+                # Handle the case when the result is None
+                st.warning("Please enter valid column types.")
+                
+            # st.write(st.session_state.df_table)    
+
+        
 
         choix_du_probleme()
-        
-        # Example usage:
-        # Call the function and assign the output to a variable
-        df = create_dynamic_dataframe()
-
-        # Display the variable
-        st.write(df)
 
         with st.form(key="Exit", border=False):
             st.form_submit_button("Exit", on_click=lambda: st.session_state.update({"page": 0}))  # Revenir à la landing page
