@@ -39,14 +39,24 @@ def landing_page():
 
     st.markdown(f'<style>{css}</style>', unsafe_allow_html=True)
 
-    st.markdown('<p class="font">Welcome !</p>', unsafe_allow_html=True)
+    st.markdown('<p class="font">Bienvenue sur OptiML!</p>', unsafe_allow_html=True)
 
-    st.title("Bienvenue dans notre application de Machine Learning.")
-    st.write("Cliquez sur le bouton ci-dessous pour commencer.")
+    # Création de deux colonnes
+    left_column, right_column = st.columns(2)
+
+    # Dans la colonne de gauche
+    with left_column:
+        st.subheader("Découvrez une plateforme intuitive d'exploration de données et d'apprentissage automatique qui donne vie à votre parcours data.")
+        st.subheader("Que vous soyez un passionné de données, un analyste ou un amateur d'apprentissage automatique, OptiML offre une interface conviviale pour importer, explorer et analyser vos ensembles de données en toute simplicité.")
+        
+
+    # Dans la colonne de droite
+    with right_column:
+        st.write("Cliquez sur le bouton ci-dessous pour commencer.")
     
-    st.text("")  # Crée une séparation visuelle sans bordure
-    with st.form(key="landing_form", border=False):
-        st.form_submit_button("Get Started", on_click=lambda: st.session_state.update({"page": 1}))
+        st.text("")  # Crée une séparation visuelle sans bordure
+        with st.form(key="landing_form", border=False):
+            st.form_submit_button("Get Started", on_click=lambda: st.session_state.update({"page": 1}))
 
 # Fonction pour importer fichier csv
 def import_csv(): 
@@ -100,7 +110,7 @@ def visualize_data():
     st.session_state.selected_columns = selection_column.multiselect("Sélectionnez deux colonnes", data_to_visualize.columns, key="select_columns")
 
     # Dans la colonne de sélection, permettez à l'utilisateur de choisir le graphique
-    chart_type = selection_column.selectbox("Sélectionnez le type de graphe", ["Scatter Plot", "Line Plot", "Bar Plot"])
+    chart_type = selection_column.selectbox("Sélectionnez le type de graphe", ["Scatter Plot", "Line Plot", "Bar Plot", "Box Plot", "Heatmap"])
 
     # Dans la colonne de sélection, affichez le bouton pour afficher le graphique
     if selection_column.button("Afficher le graphe"):
@@ -114,6 +124,11 @@ def visualize_data():
                 sns.lineplot(x=st.session_state.selected_columns[0], y=st.session_state.selected_columns[1], data=data_to_visualize, ax=ax)
             elif chart_type == "Bar Plot":
                 sns.barplot(x=st.session_state.selected_columns[0], y=st.session_state.selected_columns[1], data=data_to_visualize, ax=ax)
+            elif chart_type == "Box Plot":
+                sns.boxplot(x=st.session_state.selected_columns[0], y=st.session_state.selected_columns[1], data=data_to_visualize, ax=ax)
+            elif chart_type == "Heatmap":
+                heatmap_data = data_to_visualize[st.session_state.selected_columns].corr()
+                sns.heatmap(heatmap_data, annot=True, cmap="coolwarm", ax=ax)
             else:
                 st.warning("Veuillez sélectionner un type de graphe valide.")
             
@@ -758,56 +773,65 @@ def choisir_hyperparametres():
 
 def execute_algorithm():
     if st.session_state.model_hyperparameters is not None:
-        
-        algorithm_choice = st.session_state.algorithm_choice
-        hyperparameters = st.session_state.model_hyperparameters
-
-        if st.session_state.split_data is not None :
-            model_data = st.session_state.split_data
-        elif st.session_state.resampled_data is not None:
-            model_data = st.session_state.resampled_data
-
-        # Exécuter l'algorithme en fonction du choix de l'utilisateur
-        if algorithm_choice == "Regression logistique":
-            model = execute_logistic_regression(hyperparameters, model_data)
-
-        elif algorithm_choice == "Arbre de décision CART":
-            if st.session_state.user_choice == "Classification Supervisé":
-                model = execute_decision_tree_classifier(hyperparameters, model_data)
-            elif st.session_state.user_choice == "Regression Supervisé":
-                model = execute_decision_tree_regressor(hyperparameters, model_data)
-
-        elif algorithm_choice == "Naif bayes":
-            model = execute_naive_bayes(hyperparameters, model_data)
-
-        elif algorithm_choice == "SVM":
-            if st.session_state.user_choice == "Classification Supervisé":
-                model = execute_svm_classifier(hyperparameters, model_data)
-            elif st.session_state.user_choice == "Regression Supervisé":
-                model = execute_svm_regressor(hyperparameters, model_data)
-
-        elif algorithm_choice == "KNN":
-            if st.session_state.user_choice == "Classification Supervisé":
-                model = execute_knn_classifier(hyperparameters, model_data)
-            elif st.session_state.user_choice == "Regression Supervisé":
-                model = execute_knn_regressor(hyperparameters, model_data)
-
-        elif algorithm_choice == "Random forest":
-            if st.session_state.user_choice == "Classification Supervisé":
-                model = execute_random_forest_classifier(hyperparameters, model_data)
-            elif st.session_state.user_choice == "Regression Supervisé":
-                model = execute_random_forest_regressor(hyperparameters, model_data)
-
-        elif algorithm_choice == "Regression linéaire":
-            model = execute_linear_regression(model_data)
-
-        elif algorithm_choice == "K-means":
-            model = execute_kmeans(hyperparameters, model_data)
-            
-
         # Afficher le bouton pour Entraîner le modèle
         if st.button("Entraîner le modèle"):
-            st.session_state.model = model
+            
+            algorithm_choice = st.session_state.algorithm_choice
+            hyperparameters = st.session_state.model_hyperparameters
+
+            if st.session_state.split_data is not None :
+                model_data = st.session_state.split_data
+            elif st.session_state.resampled_data is not None:
+                model_data = st.session_state.resampled_data
+
+            # Exécuter l'algorithme en fonction du choix de l'utilisateur
+            if algorithm_choice == "Regression logistique":
+                model = execute_logistic_regression(hyperparameters, model_data)
+                st.session_state.model = model
+
+            elif algorithm_choice == "Arbre de décision CART":
+                if st.session_state.user_choice == "Classification Supervisé":
+                    model = execute_decision_tree_classifier(hyperparameters, model_data)
+                    st.session_state.model = model
+                elif st.session_state.user_choice == "Regression Supervisé":
+                    model = execute_decision_tree_regressor(hyperparameters, model_data)
+                    st.session_state.model = model
+
+            elif algorithm_choice == "Naif bayes":
+                model = execute_naive_bayes(hyperparameters, model_data)
+                st.session_state.model = model
+
+            elif algorithm_choice == "SVM":
+                if st.session_state.user_choice == "Classification Supervisé":
+                    model = execute_svm_classifier(hyperparameters, model_data)
+                    st.session_state.model = model
+                elif st.session_state.user_choice == "Regression Supervisé":
+                    model = execute_svm_regressor(hyperparameters, model_data)
+                    st.session_state.model = model
+
+            elif algorithm_choice == "KNN":
+                if st.session_state.user_choice == "Classification Supervisé":
+                    model = execute_knn_classifier(hyperparameters, model_data)
+                    st.session_state.model = model
+                elif st.session_state.user_choice == "Regression Supervisé":
+                    model = execute_knn_regressor(hyperparameters, model_data)
+                    st.session_state.model = model
+
+            elif algorithm_choice == "Random forest":
+                if st.session_state.user_choice == "Classification Supervisé":
+                    model = execute_random_forest_classifier(hyperparameters, model_data)
+                    st.session_state.model = model
+                elif st.session_state.user_choice == "Regression Supervisé":
+                    model = execute_random_forest_regressor(hyperparameters, model_data)
+                    st.session_state.model = model
+
+            elif algorithm_choice == "Regression linéaire":
+                model = execute_linear_regression(model_data)
+                st.session_state.model = model
+
+            elif algorithm_choice == "K-means":
+                model = execute_kmeans(hyperparameters, model_data)
+                st.session_state.model = model
     else:
         pass
 
