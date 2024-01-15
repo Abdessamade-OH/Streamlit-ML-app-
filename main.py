@@ -40,6 +40,8 @@ def init_session():
         st.session_state.model = None # Initialiser la variable "model" à None
         st.session_state.folder_path = None # Initialiser la variable "folder_path" à None
 
+
+
 # Fonction pour afficher la landing page
 def landing_page():
     with open('style.css') as f:
@@ -47,28 +49,28 @@ def landing_page():
 
     st.markdown(f'<style>{css}</style>', unsafe_allow_html=True)
 
-    st.title("OptiML")
+    # Display the image using st.image
+    img_path = "media/bg.png"
+    st.image(img_path)
+
+    # Création de deux colonnes
+    left_column, right_column = st.columns(2)
+
+    # Dans la colonne de gauche
+    with left_column:
+        st.title("OptiML")
+        st.subheader("Découvrez une plateforme intuitive d'exploration de données et d'apprentissage automatique qui donne vie à votre parcours data.")
+        st.subheader("Que vous soyez un passionné de données, un analyste ou un amateur d'apprentissage automatique, OptiML offre une interface conviviale pour importer, explorer et analyser vos ensembles de données en toute simplicité.")
     
-    st.subheader("Découvrez une plateforme intuitive d'exploration de données et d'apprentissage automatique qui donne vie à votre parcours data.")
-    st.subheader("Que vous soyez un passionné de données, un analyste ou un amateur d'apprentissage automatique, OptiML offre une interface conviviale pour importer, explorer et analyser vos ensembles de données en toute simplicité.")
-   
-    st.subheader("Cliquez sur le bouton ci-dessous pour commencer :")
+        st.text("")  # Crée une séparation visuelle sans bordure
+        st.text("")  # Crée une séparation visuelle sans bordure
+        st.text("")  # Crée une séparation visuelle sans bordure
+        st.text("")  # Crée une séparation visuelle sans bordure
 
-    with st.form(key="landing_form", border=False):
-        st.form_submit_button("Get Started", on_click=lambda: st.session_state.update({"page": 1}))
+        st.subheader("Cliquez sur le bouton ci-dessous pour commencer :")
 
-    st.text("")  # Crée une séparation visuelle sans bordure
-    st.text("")  # Crée une séparation visuelle sans bordure
-
-    st.subheader("Guide des Onglets : Découvrez Chaque Étape de Votre Projet d'Apprentissage Automatique")
-    st.write("Importation des Données : Importez vos ensembles de données dans l'application pour démarrer votre projet.")
-    st.write("Visualisation : Explorez visuellement vos données avec des graphiques et des tableaux pour en comprendre la structure.")
-    st.write("Nettoyage des Données : Effectuez des opérations de nettoyage, telles que le traitement des valeurs manquantes ou la suppression des valeurs aberrantes.")
-    st.write("Préparation des Données : Divisez vos données en ensembles d'entraînement et de test pour préparer le modèle.")
-    st.write("Transformation des Données : Appliquez des transformations, notamment l'analyse en composantes principales (PCA) et la suréchantillonnage des données avec SMOTE, pour optimiser la préparation de votre modèle.")
-    st.write("Entraînement du Modèle : Choisissez et entraînez votre modèle d'apprentissage automatique avec les données préparées.")
-    st.write("Évaluation du Modèle : Évaluez les performances de votre modèle avec des métriques adaptées au problème.")
-    st.write("Exportation du Modèle : Exportez votre modèle entraîné pour une utilisation future.")
+        with st.form(key="landing_form", border=False):
+            st.form_submit_button("Get Started", on_click=lambda: st.session_state.update({"page": 1}))
 
     
 
@@ -82,17 +84,23 @@ def import_csv():
 def create_data():
     st.subheader("Créer vos propres données:")
     data_input = st.text_area("Entrez vos données séparées par des virgules (ex: 1,2,3,4)")
-    
+
     if st.button("Créer"):
         if data_input:
             lines = data_input.strip().split('\n')
             data_list = [line.split(',') for line in lines]
 
             try:
-                # Convert to float, skip header
-                user_data = [list(map(float, line)) for line in data_list[1:]]
-                st.session_state.data = pd.DataFrame(user_data, columns=data_list[0])  
-                st.success("Vos données ont été créées avec succès.")
+                # Convert to float, handle mixed data types
+                user_data = [list(map(lambda x: float(x) if x.replace(".", "", 1).isdigit() else x, line)) for line in data_list[1:]]
+                user_columns = data_list[0]
+
+                # Check for duplicate column names
+                if len(set(user_columns)) != len(user_columns):
+                    st.warning("Des noms de colonnes en double ont été trouvés. Veuillez utiliser des noms de colonnes uniques.")
+                else:
+                    st.session_state.data = pd.DataFrame(user_data, columns=user_columns)
+                    st.success("Vos données ont été créées avec succès.")
             except ValueError as e:
                 st.warning(f"Erreur de conversion : {e}. Assurez-vous que toutes les valeurs sont numériques.")
         else:
@@ -1309,6 +1317,10 @@ def display_tabs():
     # onglet netoyage des données  
     with tab3:
         st.header("Nettoyage des Données")
+
+        if st.button("Réinitialiser les données"):
+            st.session_state.modified_data = st.session_state.data
+
 
         # Appel de la fonction d'importation des données avant d'exécuter les autres fonctions
         if not check_data_exists():

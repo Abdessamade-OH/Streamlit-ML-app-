@@ -2,13 +2,12 @@
     background-color: transparent;
 }
 
-.stApp {
-    margin: auto;
-    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-    overflow: auto;
-    background: linear-gradient(315deg, #eabbbb 3%, #e48686 38%, #d75959 68%, #e8e2e2 98%);
-    animation: gradient 15s ease infinite;
-    background-size: 400% 400%;
-    background-attachment: fixed;
+img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    position: fixed;
+    top: 0;
+    left: 0;
 }
 
