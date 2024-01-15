@@ -50,13 +50,12 @@ def landing_page():
         st.subheader("Que vous soyez un passionné de données, un analyste ou un amateur d'apprentissage automatique, OptiML offre une interface conviviale pour importer, explorer et analyser vos ensembles de données en toute simplicité.")
         
 
-    # Dans la colonne de droite
-    with right_column:
-        st.write("Cliquez sur le bouton ci-dessous pour commencer.")
-    
-        st.text("")  # Crée une séparation visuelle sans bordure
-        with st.form(key="landing_form", border=False):
-            st.form_submit_button("Get Started", on_click=lambda: st.session_state.update({"page": 1}))
+   
+    st.write("Cliquez sur le bouton ci-dessous pour commencer.")
+
+    st.text("")  # Crée une séparation visuelle sans bordure
+    with st.form(key="landing_form", border=False):
+        st.form_submit_button("Get Started", on_click=lambda: st.session_state.update({"page": 1}))
 
 # Fonction pour importer fichier csv
 def import_csv(): 
